@@ -1,9 +1,16 @@
+import { BrowserRouter as Main, Routes, Route } from "react-router-dom";
+import { Login } from "./components/Auth/Login"
+import { Register } from "./components/Auth/Register";
+
 function App() {
 
   return (
-    <div className="text-center">
-      Hello World
-    </div>
+    <Main>
+      <Routes>
+        <Route exact path="/login" element={<Login />} />
+        <Route exact path="/register" element={<Register />} />
+      </Routes>
+    </Main>
   )
 }
 

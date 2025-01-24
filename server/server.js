@@ -1,6 +1,7 @@
 import express from "express";
 import pkg from "pg";
 import dotenv from "dotenv";
+import cors from "cors";
 
 // Load the environment variables
 dotenv.config();
@@ -34,17 +35,43 @@ const app = express();
 
 // Middleware to parse JSON requests
 app.use(express.json());
+app.use(cors());
 
 // Define a simple route
 app.get("/", (req, res) => {
   res.send("Hello");
 });
 
-// Define a route to get all the users
-app.get("/users", async (req, res) => {
+// Define a route to register a new user
+app.post("/register", async (req, res) => {
+  const { name, username, password } = req.body;
+
   try {
-    const result = await client.query("SELECT * FROM user_info");
-    res.send(result.rows);
+    const result = await client.query(
+      "INSERT INTO user_info (name, username, password) VALUES ($1, $2, $3) RETURNING *",
+      [name, username, password]
+    );
+    res.send(result.rows[0]);
+  } catch (error) {
+    console.error("Error executing query", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Define a route to login a user
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const result = await client.query(
+      "SELECT * FROM user_info WHERE username = $1 AND password = $2",
+      [username, password]
+    );
+    if (result.rows.length > 0) {
+      res.send(result.rows[0]);
+    } else {
+      res.status(401).json({ error: "Invalid credentials" });
+    }
   } catch (error) {
     console.error("Error executing query", error);
     res.status(500).json({ error: "Internal server error" });

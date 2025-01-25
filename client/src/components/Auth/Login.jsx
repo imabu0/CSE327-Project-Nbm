@@ -28,7 +28,7 @@ export const Login = () => {
       .post("http://localhost:8081/login", formData)
       .then((response) => {
         console.log("Login successful");
-        navigate("/");
+        navigate("/test");
       })
       .catch((error) => {
         console.error("There was an error!", error);

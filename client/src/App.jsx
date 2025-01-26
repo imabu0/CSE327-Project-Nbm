@@ -1,8 +1,10 @@
+
 import { BrowserRouter as Main, Routes, Route } from "react-router-dom";
 import { Login } from "./components/Auth/Login"
 import { Register } from "./components/Auth/Register";
 import { Test } from "./components/Pages/Test/Test";
 import { Upload } from "./components/Pages/Test/Upload";
+import FileManager from "./components/Auth/FileManager";
 
 function App() {
 
@@ -13,6 +15,7 @@ function App() {
         <Route exact path="/register" element={<Register />} />
         <Route exact path="/test" element={<Test />} />
         <Route exact path="/upload" element={<Upload />} />
+        <Route exact path="/filemanager" element={<FileManager />} />
       </Routes>
     </Main>
   )

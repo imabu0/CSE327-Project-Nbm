@@ -1,8 +1,11 @@
 package com.example.myapplication
+
+import com.example.myapplication.ui.theme.MyApplicationTheme
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
@@ -17,26 +20,42 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.ui.theme.MyApplicationTheme
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MyApplicationTheme {
-                RegistrationScreen()
+            MyApplicationTheme{
+                AppNavigation()
             }
         }
     }
 }
 
 @Composable
-fun RegistrationScreen() {
-    // Main container
+fun AppNavigation() {
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = "registration") {
+        composable("registration") {
+            RegistrationScreen(navController)
+        }
+        composable("login") {
+            LoginScreen(navController)
+        }
+    }
+}
+
+@Composable
+fun RegistrationScreen(navController: NavHostController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5)), // Background color
+            .background(Color(0xFFF5F5F5)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -46,64 +65,118 @@ fun RegistrationScreen() {
                 .background(Color.White),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Welcome text
             Text(
                 text = "Welcome",
                 fontSize = 28.sp,
                 color = Color.Black,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
-
             Text(
                 text = "Please register to continue",
                 fontSize = 16.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-
-            // Input fields
             CustomTextField(placeholder = "Enter username")
             Spacer(modifier = Modifier.height(8.dp))
             CustomTextField(placeholder = "Enter email address")
             Spacer(modifier = Modifier.height(8.dp))
             CustomTextField(placeholder = "Enter password", isPassword = true)
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Register button
             Button(
                 onClick = { /* Handle registration */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp)
                     .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500)) // Orange
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
             ) {
                 Text(text = "Register", color = Color.White)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Google button
             OutlinedButton(
                 onClick = { /* Handle Google registration */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp)
-                    .height(50.dp),
-                border = ButtonDefaults.outlinedButtonBorder
+                    .height(50.dp)
             ) {
                 Text(text = "Google", color = Color.Black)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Login text
             Text(
                 text = "Already have an account? Login",
                 fontSize = 14.sp,
-                color = Color(0xFF007BFF), // Blue
+                color = Color(0xFF007BFF),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 12.dp)
+                modifier = Modifier.padding(top = 4.dp).clickable {
+                    navController.navigate("login")
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun LoginScreen(navController: NavHostController) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .size(500.dp, 480.dp)
+                .padding(16.dp)
+                .background(Color.White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Welcome back",
+                fontSize = 28.sp,
+                color = Color.Black,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            Text(
+                text = "Please login to continue",
+                fontSize = 16.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            CustomTextField(placeholder = "Enter username")
+            Spacer(modifier = Modifier.height(8.dp))
+            CustomTextField(placeholder = "Enter password", isPassword = true)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { /* Handle login */ },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp)
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Login", color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = { /* Handle Google login */ },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp)
+                    .height(50.dp)
+            ) {
+                Text(text = "Google", color = Color.Black)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Don't have an account? Register",
+                fontSize = 14.sp,
+                color = Color(0xFF007BFF),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 16.dp).clickable {
+                    navController.navigate("registration")
+                }
             )
         }
     }

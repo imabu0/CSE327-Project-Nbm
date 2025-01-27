@@ -78,14 +78,107 @@ app.post("/login", async (req, res) => {
 
 // Define a route to upload a file to Google Drive
 
+// Load Google API credentials
+const KEYFILEPATH = "./credentials.json";
+const SCOPES = ["https://www.googleapis.com/auth/drive"];
+const auth = new google.auth.GoogleAuth({
+  keyFile: KEYFILEPATH,
+  scopes: SCOPES,
+});
+
+const drive = google.drive({ version: "v3", auth });
+
+// Multer setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/"); // Save to local 'uploads' folder temporarily
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
+
+// Upload file to Google Drive
+async function uploadToDrive(file) {
+  const fileMetadata = {
+    name: file.originalname, // File name in Google Drive
+    parents: [process.env.FOLDER_ID], // Folder ID in Google Drive
+  };
+  const media = {
+    mimeType: file.mimetype,
+    body: fs.createReadStream(file.path),
+  };
+
+  try {
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: "id",
+    });
+
+    console.log(`File uploaded successfully. File ID: ${response.data.id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading file to Drive:", error.message);
+    throw error;
+  } finally {
+    // Delete file from local storage after upload
+    fs.unlinkSync(file.path);
+  }
+}
+
+// Route for file upload
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    const driveResponse = await uploadToDrive(file);
+    res.status(200).send(`File uploaded to Drive with ID: ${driveResponse.id}`);
+  } catch (error) {
+    res.status(500).send("Error uploading file: " + error.message);
+  }
+});
+
 // Define a route to list files in Google Drive
+// Route to fetch and display the file list
+app.get("/files", async (req, res) => {
+  const folderId = process.env.FOLDER_ID;
+
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`, // Query for files in the folder
+      pageSize: 100, // Fetch up to 100 files per request
+      fields: "files(id, name, mimeType, createdTime, size)", // Select fields to retrieve
+    });
+
+    const files = response.data.files;
+
+    if (!files || files.length === 0) {
+      return res.status(404).send("No files found in the specified folder.");
+    }
+
+    res.status(200).json({
+      message: `Files retrieved successfully from folder ID: ${folderId}`,
+      files,
+    });
+  } catch (error) {
+    console.error("Error retrieving files:", error.message);
+    res.status(500).send("Error retrieving files from the folder.");
+  }
+});
+
 
 // Define a route to download a file from Google Drive
 
 // Define a route to delete a file from Google Drive
 
 // Define a route to upload a file
-const storage = multer.diskStorage({
+const Storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "./uploads");
   },
@@ -94,9 +187,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
-
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/gupload", upload.single("file"), (req, res) => {
   console.log(req.file);
   console.log(req.body);
 });

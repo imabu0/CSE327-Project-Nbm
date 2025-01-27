@@ -5,6 +5,7 @@ import cors from "cors";
 import multer from "multer";
 import fs from "fs";
 import { google } from "googleapis";
+import path from "path";
 
 // Load the environment variables
 dotenv.config();
@@ -190,6 +191,94 @@ const Storage = multer.diskStorage({
 app.post("/gupload", upload.single("file"), (req, res) => {
   console.log(req.file);
   console.log(req.body);
+});
+
+//TEST TEST TEST
+// Utility function to split and upload file to Google Drive
+async function splitAndUploadToDrive(filePath, chunkSizeMB = 8) {
+  const chunkSize = chunkSizeMB * 1024 * 1024; // Convert MB to bytes
+  const fileStats = fs.statSync(filePath); // Get file info
+  const totalChunks = Math.ceil(fileStats.size / chunkSize);
+  const fileName = path.basename(filePath, path.extname(filePath)); // Get file name without extension
+  const fileExtension = path.extname(filePath); // Get file extension
+
+  console.log(`Splitting file into ${totalChunks} chunks...`);
+  const uploadedChunks = [];
+
+  try {
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, fileStats.size);
+
+      const chunkPath = `${fileName}_part_${i + 1}${fileExtension}`;
+      const writeStream = fs.createWriteStream(chunkPath);
+      const readStream = fs.createReadStream(filePath, { start, end: end - 1 });
+
+      // Write chunk to temporary file
+      await new Promise((resolve, reject) => {
+        readStream.pipe(writeStream);
+        writeStream.on("finish", resolve);
+        writeStream.on("error", reject);
+      });
+
+      console.log(`Uploading chunk ${i + 1} of ${totalChunks}...`);
+
+      // Upload the chunk to Google Drive
+      const fileMetadata = {
+        name: `${fileName}_part_${i + 1}${fileExtension}`,
+        parents: [process.env.FOLDER_ID], // Folder ID in Google Drive
+      };
+      const media = {
+        mimeType: "application/octet-stream",
+        body: fs.createReadStream(chunkPath),
+      };
+
+      const response = await drive.files.create({
+        requestBody: fileMetadata,
+        media,
+        fields: "id",
+      });
+
+      uploadedChunks.push({
+        chunk: i + 1,
+        fileId: response.data.id,
+        name: fileMetadata.name,
+      });
+
+      console.log(`Chunk ${i + 1} uploaded successfully. File ID: ${response.data.id}`);
+
+      // Clean up temporary chunk file
+      fs.unlinkSync(chunkPath);
+    }
+
+    console.log("All chunks uploaded successfully.");
+    return uploadedChunks;
+  } catch (error) {
+    console.error("Error during file upload:", error.message);
+    throw error;
+  }
+}
+
+// API route to upload and process file
+app.post("/chunk", upload.single("file"), async (req, res) => {
+  try {
+    const filePath = req.file.path; // Path of the uploaded file
+    console.log(`Received file: ${req.file.originalname}`);
+
+    // Split and upload file to Google Drive
+    const uploadedChunks = await splitAndUploadToDrive(filePath);
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    res.status(200).json({
+      message: "File uploaded and split successfully.",
+      uploadedChunks,
+    });
+  } catch (error) {
+    console.error("Error handling file upload:", error.message);
+    res.status(500).json({ error: "File upload failed." });
+  }
 });
 
 // Start the server

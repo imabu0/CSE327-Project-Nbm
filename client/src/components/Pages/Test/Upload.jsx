@@ -1,26 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 
 export const Upload = () => {
   const [file, setFile] = useState(null);
-  const [files, setFiles] = useState([]);
-
-  // Fetch file list on component mount
-  useEffect(() => {
-    fetchFiles();
-  }, []);
-
-  const fetchFiles = () => {
-    axios
-      .get("http://localhost:8081/files")
-      .then((res) => {
-        console.log(res.data);
-        setFiles(res.data);
-      })
-      .catch((err) => {
-        console.error("Error fetching files:", err);
-      });
-  };
 
   const upload = () => {
     if (!file) {
@@ -43,23 +25,26 @@ export const Upload = () => {
       });
   };
 
-  const download = () => {
+  const chunk = () => {
+    if (!file) {
+      alert("Please select a file to chunk.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
     axios
-      .get(`http://localhost:8081/download/10QSVK6-zlLCwYWMkbUV7B-gYRX_mRLXi`, {
-        responseType: "blob",
-      })
+      .post("http://localhost:8081/chunk", formData)
       .then((res) => {
-        const url = window.URL.createObjectURL(new Blob([res.data]));
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "file.zip");
-        document.body.appendChild(link);
-        link.click();
+        console.log("File chunked successfully:", res);
+        // Fetch updated file list after chunk
+        fetchFiles();
       })
       .catch((err) => {
-        console.error("Error downloading file:", err);
+        console.error("Error chunking file:", err);
       });
-  }
+  };
 
   return (
     <div className="min-h-screen p-6 bg-gray-100">
@@ -80,29 +65,11 @@ export const Upload = () => {
         >
           Upload
         </button>
-
-        {/* File List */}
-        <div className="mt-6">
-          <h2 className="text-lg font-semibold mb-2">Uploaded Files</h2>
-          {files.length > 0 ? (
-            <ul className="space-y-2">
-              {files.map((f) => (
-                <li key={f.id}
-                  className="bg-gray-50 p-4 rounded shadow border flex justify-between items-center"
-                >
-                  <p className="text-blue-500 hover:underline">{f.name}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-gray-500">No files uploaded yet.</div>
-          )}
-        </div>
         <button
-          onClick={download}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mt-4"
+          onClick={chunk}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 ml-2"
         >
-          Download
+          Chunk
         </button>
       </div>
     </div>

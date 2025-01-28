@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Sidebar } from "../../Sidebar/Sidebar";
 
 export const Upload = () => {
   const [file, setFile] = useState(null);
@@ -47,7 +48,9 @@ export const Upload = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
+    <div>
+      <Sidebar />
+      <div className="min-h-screen p-6 bg-gray-100">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-semibold mb-4">File Upload</h1>
 
@@ -72,6 +75,7 @@ export const Upload = () => {
           Chunk
         </button>
       </div>
+    </div>
     </div>
   );
 };

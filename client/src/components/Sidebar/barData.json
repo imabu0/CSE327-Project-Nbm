@@ -1,0 +1,14 @@
+[
+    {
+      "id": 1,
+      "img":"img/files.svg",
+      "title": "Files",
+      "link": "/files"
+    },
+    {
+      "id": 2,
+      "img":"img/images.svg",
+      "title": "Images",
+      "link": "/images"
+    }
+]

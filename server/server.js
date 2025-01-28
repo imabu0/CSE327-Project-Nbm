@@ -173,7 +173,6 @@ app.get("/files", async (req, res) => {
   }
 });
 
-
 // Define a route to download a file from Google Drive
 
 // Define a route to delete a file from Google Drive
@@ -195,7 +194,7 @@ app.post("/gupload", upload.single("file"), (req, res) => {
 
 //TEST TEST TEST
 // Utility function to split and upload file to Google Drive
-async function splitAndUploadToDrive(filePath, chunkSizeMB = 8) {
+async function splitAndUploadToDrive(filePath, chunkSizeMB = 30) {
   const chunkSize = chunkSizeMB * 1024 * 1024; // Convert MB to bytes
   const fileStats = fs.statSync(filePath); // Get file info
   const totalChunks = Math.ceil(fileStats.size / chunkSize);
@@ -224,10 +223,13 @@ async function splitAndUploadToDrive(filePath, chunkSizeMB = 8) {
       console.log(`Uploading chunk ${i + 1} of ${totalChunks}...`);
 
       // Upload the chunk to Google Drive
+      const folderId = process.env[`FOLDER_ID_${i + 1}`]; // Dynamically access the variable
+
       const fileMetadata = {
         name: `${fileName}_part_${i + 1}${fileExtension}`,
-        parents: [process.env.FOLDER_ID], // Folder ID in Google Drive
+        parents: [folderId], // Use the dynamically accessed folder ID
       };
+      
       const media = {
         mimeType: "application/octet-stream",
         body: fs.createReadStream(chunkPath),
@@ -245,7 +247,9 @@ async function splitAndUploadToDrive(filePath, chunkSizeMB = 8) {
         name: fileMetadata.name,
       });
 
-      console.log(`Chunk ${i + 1} uploaded successfully. File ID: ${response.data.id}`);
+      console.log(
+        `Chunk ${i + 1} uploaded successfully. File ID: ${response.data.id}`
+      );
 
       // Clean up temporary chunk file
       fs.unlinkSync(chunkPath);

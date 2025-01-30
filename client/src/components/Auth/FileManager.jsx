@@ -4,67 +4,62 @@ export const FileManager = () => {
   const [view, setView] = useState("files");
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen">
       {/* Sidebar */}
-      <div className="w-full max-w-xs h-full bg-white shadow-lg flex flex-col items-center p-4">
+      <div className="w-80 h-full bg-white shadow-lg flex flex-col p-6 border-r border-gray-200 items-center">
         {/* Logo Section */}
-        <div className="flex items-center mb-8">
-          <span className="text-2xl font-medium font-Poppins text-orange-500">In</span>
-          <span className="text-2xl font-medium font-Poppins text-black">finite.</span>
+        <div className="flex items-center justify-center mb-8 w-full">
+          <span className="text-2xl font-bold text-orange-500">In</span>
+          <span className="text-2xl font-bold text-black">finite.</span>
         </div>
 
         {/* Upload Button */}
-        <button
-          className="w-full max-w-[300px] h-12 rounded-lg text-white bg-orange-500 shadow-md hover:bg-orange-600 transition mb-8"
-        >
+        <button className="w-full py-3 rounded-lg text-white bg-orange-500 shadow-md hover:bg-orange-600 transition mb-6">
           Upload
         </button>
 
-        {/* Sidebar Buttons */}
-        <div className="flex flex-col w-full space-y-4">
+        {/* Sidebar Navigation */}
+        <div className="flex flex-col space-y-4 w-full">
           <button
-            className={`w-full max-w-[300px] h-12 rounded-lg ${
-              view === "files" ? "bg-orange-500 text-white" : "bg-gray-300 text-black"
-            } hover:bg-orange-600 transition`}
+            className={`flex items-center space-x-2 w-full py-3 rounded-lg px-4 text-left ${
+              view === "files" ? "text-orange-500 border-l-4 border-orange-500" : "text-gray-700 hover:text-orange-500"
+            } transition`}
             onClick={() => setView("files")}
           >
-            Files
+            <img src="/img/files.svg" alt="Files" className="w-5 h-5" />
+            <span>Files</span>
           </button>
           <button
-            className={`w-full max-w-[300px] h-12 rounded-lg ${
-              view === "images" ? "bg-orange-500 text-white" : "bg-gray-300 text-black"
-            } hover:bg-orange-600 transition`}
+            className={`flex items-center space-x-2 w-full py-3 rounded-lg px-4 text-left ${
+              view === "images" ? "text-orange-500 border-l-4 border-orange-500" : "text-gray-700 hover:text-orange-500"
+            } transition`}
             onClick={() => setView("images")}
           >
-            Images
+            <img src="/img/images.svg" alt="Images" className="w-5 h-5" />
+            <span>Images</span>
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 flex flex-col">
-        {/* Header */}
+      <div className="flex-1 p-6 bg-gray-100 relative">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-medium">
-            {view === "files" ? "Files" : "Images"}
-          </h1>
-
+          <h1 className="text-2xl font-semibold">{view === "files" ? "Files" : "Images"}</h1>
           <div className="flex items-center space-x-4">
             <input
               type="text"
-              placeholder={`Search ${view}`}
-              className="border border-gray-300 rounded-lg px-4 py-2 w-[400px] h-[48px] focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="Search files"
+              className="border border-gray-300 rounded-lg px-4 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-
-            <div className="w-12 h-12 bg-orange-500 text-white flex items-center justify-center rounded-full text-lg font-bold">
-              P
+            <div className="w-12 h-12 bg-gray-300 flex items-center justify-center rounded-full cursor-pointer">
+              <img src="/img/profile.svg" alt="Profile" className="w-8 h-8" />
             </div>
           </div>
         </div>
-
-        {/* Display Area */}
-        <div className="flex-1 border border-gray-300 bg-white shadow-md rounded-lg flex items-center justify-center">
-          {view === "files" ? <p></p> : <p>Image content goes here...</p>}
+        
+        {/* Display Box */}
+        <div className="w-full h-full bg-white shadow-md rounded-lg p-4 border border-gray-300">
+          {view === "files" ? <p>File content goes here...</p> : <p>Image content goes here...</p>}
         </div>
       </div>
     </div>

@@ -2,6 +2,18 @@ import React, { useState } from "react";
 
 export const FileManager = () => {
   const [view, setView] = useState("files");
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    document.getElementById("fileInput").click();
+  };
 
   return (
     <div className="flex h-screen">
@@ -14,9 +26,18 @@ export const FileManager = () => {
         </div>
 
         {/* Upload Button */}
-        <button className="w-full py-3 rounded-lg text-white bg-orange-500 shadow-md hover:bg-orange-600 transition mb-6">
+        <button
+          className="w-full py-3 rounded-lg text-white bg-orange-500 shadow-md hover:bg-orange-600 transition mb-6"
+          onClick={triggerFileInput}
+        >
           Upload
         </button>
+        <input
+          type="file"
+          id="fileInput"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
 
         {/* Sidebar Navigation */}
         <div className="flex flex-col space-y-4 w-full">
@@ -59,7 +80,11 @@ export const FileManager = () => {
         
         {/* Display Box */}
         <div className="w-full h-full bg-white shadow-md rounded-lg p-4 border border-gray-300">
-          {view === "files" ? <p>File content goes here...</p> : <p>Image content goes here...</p>}
+          {selectedFile ? (
+            <p className="text-gray-700">Uploaded file: {selectedFile.name}</p>
+          ) : (
+            <p>{view === "files" ? "File content goes here..." : "Image content goes here..."}</p>
+          )}
         </div>
       </div>
     </div>

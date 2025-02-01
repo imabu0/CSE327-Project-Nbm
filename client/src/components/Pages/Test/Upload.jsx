@@ -49,7 +49,6 @@ export const Upload = () => {
 
   return (
     <div>
-      <Sidebar />
       <div className="min-h-screen p-6 bg-gray-100">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-semibold mb-4">File Upload</h1>
@@ -58,6 +57,7 @@ export const Upload = () => {
         <div className="mb-4">
           <input
             type="file"
+            webkitdirectory
             onChange={(e) => setFile(e.target.files[0])}
             className="border p-2 rounded w-full"
           />

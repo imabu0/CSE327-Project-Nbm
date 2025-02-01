@@ -77,8 +77,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Define a route to upload a file to Google Drive
-
 // Load Google API credentials
 const KEYFILEPATH = "./credentials.json";
 const SCOPES = ["https://www.googleapis.com/auth/drive"];
@@ -101,36 +99,93 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Upload file to Google Drive
-async function uploadToDrive(file) {
-  const fileMetadata = {
-    name: file.originalname, // File name in Google Drive
-    parents: [process.env.FOLDER_ID], // Folder ID in Google Drive
-  };
-  const media = {
-    mimeType: file.mimetype,
-    body: fs.createReadStream(file.path),
-  };
+// List of folder IDs
+const folderIds = [
+  process.env.FOLDER_ID_1,
+  process.env.FOLDER_ID_2,
+  process.env.FOLDER_ID_3,
+  process.env.FOLDER_ID_4,
+];
 
+// Get available size of a bucket
+async function getFolderSize(folderId) {
   try {
-    const response = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: "id",
-    });
+    let totalSize = 0;
+    let pageToken = null;
 
-    console.log(`File uploaded successfully. File ID: ${response.data.id}`);
-    return response.data;
+    do {
+      const response = await drive.files.list({
+        q: `'${folderId}' in parents and trashed = false`, // Files in the folder
+        fields: "nextPageToken, files(id, name, size)", // Get file size
+        pageToken: pageToken,
+      });
+
+      response.data.files.forEach((file) => {
+        if (file.size) {
+          totalSize += parseInt(file.size); // Add file size
+        }
+      });
+
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
+
+    console.log(
+      `Total size of folder (ID: ${folderId}): ${
+        totalSize / 1024 / 1024 / 1024
+      } GB`
+    );
+    return totalSize;
   } catch (error) {
-    console.error("Error uploading file to Drive:", error.message);
-    throw error;
-  } finally {
-    // Delete file from local storage after upload
-    fs.unlinkSync(file.path);
+    console.error("Error fetching folder size:", error.message);
   }
 }
 
-// Route for file upload
+// Define a route to upload a file to Google Drive
+async function uploadToDrive(file) {
+  const fileStats = fs.statSync(file.path);
+  const fileSize = fileStats.size; // File size in bytes
+  console.log(`File size: ${(fileSize / (1024 * 1024 * 1024)).toFixed(2)} GB`);
+
+  for (let i = 0; i < folderIds.length; i++) {
+    const folderSize = await getFolderSize(folderIds[i]);
+    console.log(`Folder ${i + 1} size: ${(folderSize / (1024 * 1024 * 1024)).toFixed(2)} GB`);
+
+    if (folderSize + fileSize < 15 * 1024 * 1024 * 1024) {
+      const fileMetadata = {
+        name: file.originalname,
+        parents: [folderIds[i]], // Upload to this folder
+      };
+
+      try {
+        console.log(`Uploading file to folder ${i + 1}`);
+
+        const res = await drive.files.create({
+          requestBody: fileMetadata,
+          media: { mimeType: file.mimetype, body: fs.createReadStream(file.path) },
+          fields: "id",
+          supportsAllDrives: true, // Required for shared drives
+        }, {
+          onUploadProgress: (event) => {
+            const progress = ((event.bytesRead / fileSize) * 100).toFixed(2);
+            console.log(`Upload progress: ${progress}%`); // Log upload progress
+          }
+        });
+
+        console.log(`File uploaded successfully. File ID: ${res.data.id}`);
+        return res.data;
+      } catch (error) {
+        console.error("Error uploading file to Drive:", error.message);
+        throw error;
+      } finally {
+        fs.unlinkSync(file.path); // Delete file from local storage after upload
+      }
+    }
+  }
+
+  console.log("No available space in the folders to upload the file.");
+}
+
+// Define a route to upload files to Google Drive
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
@@ -146,51 +201,10 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 // Define a route to list files in Google Drive
-// Route to fetch and display the file list
-app.get("/files", async (req, res) => {
-  const folderId = process.env.FOLDER_ID;
-
-  try {
-    const response = await drive.files.list({
-      q: `'${folderId}' in parents and trashed=false`, // Query for files in the folder
-      pageSize: 100, // Fetch up to 100 files per request
-      fields: "files(id, name, mimeType, createdTime, size)", // Select fields to retrieve
-    });
-
-    const files = response.data.files;
-
-    if (!files || files.length === 0) {
-      return res.status(404).send("No files found in the specified folder.");
-    }
-
-    res.status(200).json({
-      message: `Files retrieved successfully from folder ID: ${folderId}`,
-      files,
-    });
-  } catch (error) {
-    console.error("Error retrieving files:", error.message);
-    res.status(500).send("Error retrieving files from the folder.");
-  }
-});
 
 // Define a route to download a file from Google Drive
 
 // Define a route to delete a file from Google Drive
-
-// Define a route to upload a file
-const Storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./uploads");
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-
-app.post("/gupload", upload.single("file"), (req, res) => {
-  console.log(req.file);
-  console.log(req.body);
-});
 
 //TEST TEST TEST
 // Utility function to split and upload file to Google Drive
@@ -201,6 +215,7 @@ async function splitAndUploadToDrive(filePath, chunkSizeMB = 30) {
   const fileName = path.basename(filePath, path.extname(filePath)); // Get file name without extension
   const fileExtension = path.extname(filePath); // Get file extension
 
+  console.log(`File size: ${fileStats.size / 1024} MB`);
   console.log(`Splitting file into ${totalChunks} chunks...`);
   const uploadedChunks = [];
 
@@ -229,7 +244,7 @@ async function splitAndUploadToDrive(filePath, chunkSizeMB = 30) {
         name: `${fileName}_part_${i + 1}${fileExtension}`,
         parents: [folderId], // Use the dynamically accessed folder ID
       };
-      
+
       const media = {
         mimeType: "application/octet-stream",
         body: fs.createReadStream(chunkPath),

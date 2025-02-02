@@ -1,4 +1,4 @@
-import express from "express";
+/*import express from "express";
 import pkg from "pg";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -304,4 +304,257 @@ app.post("/chunk", upload.single("file"), async (req, res) => {
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});*/
+
+const express = require("express");
+const { google } = require("googleapis");
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+const session = require("express-session");
+require("dotenv").config();
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+// Load OAuth2 client credentials
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const REDIRECT_URI = process.env.REDIRECT_URI;
+
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+
+// Middleware to serve static files (frontend)
+app.use(express.static("public"));
+app.use(express.json());
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true,
+}));
+
+// Multer for file uploads
+const upload = multer({ dest: "uploads/" });
+
+// Function to refresh token if expired
+async function refreshTokenIfNeeded(auth) {
+  try {
+    if (!auth.credentials.expiry_date || auth.credentials.expiry_date <= Date.now()) {
+      console.log(`Refreshing access token`);
+      const { credentials } = await auth.refreshAccessToken();
+      auth.setCredentials(credentials);
+    }
+  } catch (err) {
+    console.error("Failed to refresh access token:", err.message);
+  }
+}
+
+// Function to get available storage for a given account
+async function getAvailableStorage(auth) {
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    const response = await drive.about.get({
+      fields: "storageQuota",
+    });
+    const { storageQuota } = response.data;
+    return parseInt(storageQuota.limit) - parseInt(storageQuota.usage); // Available storage
+  } catch (err) {
+    console.error("Failed to get available storage:", err.message);
+    throw new Error("Failed to get available storage.");
+  }
+}
+
+// Step 1: Start OAuth Flow
+app.get("/authorize", (req, res) => {
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: ["https://www.googleapis.com/auth/drive"],
+  });
+  res.redirect(authUrl);
+});
+
+// Step 2: Handle OAuth Callback
+app.get("/oauth2callback", async (req, res) => {
+  const code = req.query.code;
+
+  try {
+    const { tokens: userTokens } = await oauth2Client.getToken(code);
+    
+    // Initialize tokens array if it doesn't exist
+    if (!req.session.tokens) {
+      req.session.tokens = [];
+    }
+
+    // Add new tokens to the array
+    req.session.tokens.push(userTokens);
+    res.send("Account linked successfully! You can now upload files.");
+  } catch (err) {
+    console.error("Error during authentication:", err.message);
+    res.status(500).send("Error during authentication.");
+  }
+});
+
+// Step 3: View Files in Google Drive
+app.get("/drive", async (req, res) => {
+  if (!req.session.tokens) {
+    return res.status(400).send("No account linked.");
+  }
+
+  const files = [];
+  for (const userTokens of req.session.tokens) {
+    oauth2Client.setCredentials(userTokens);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    try {
+      const response = await drive.files.list({
+        pageSize: 100,
+        fields: "files(id, name, mimeType)",
+        q: "'root' in parents or trashed=false",
+      });
+
+      files.push(...response.data.files);
+    } catch (err) {
+      console.error("Google Drive API error:", err.response?.data || err.message);
+      return res.status(500).send("Failed to retrieve files.");
+    }
+  }
+
+  if (files.length) {
+    res.json(files);
+  } else {
+    res.send("No files found.");
+  }
+});
+
+// Step 4: Upload File to Google Drive
+app.post("/upload", upload.single("file"), async (req, res) => {
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).send("No file uploaded.");
+  }
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(400).send("No accounts linked.");
+  }
+
+  const fileSize = file.size; // Size of the uploaded file
+  let uploaded = false;
+
+  for (const userTokens of req.session.tokens) {
+    oauth2Client.setCredentials(userTokens);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    try {
+      const availableStorage = await getAvailableStorage(oauth2Client);
+      console.log(`Available storage for account: ${availableStorage/1024/1024/1024} GB`);
+
+      if (availableStorage >= fileSize) {
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+        const fileMetadata = { name: file.originalname };
+        const media = { mimeType: file.mimetype, body: fs.createReadStream(file.path) };
+
+        const response = await drive.files.create({
+          resource: fileMetadata,
+          media: media,
+          fields: "id",
+        });
+
+        fs.unlinkSync(file.path); // Clean up uploaded file
+        uploaded = true;
+        return res.send(`File uploaded successfully! File ID: ${response.data.id}`);
+      } else {
+        console.log(`Not enough storage in this account. Trying next account...`);
+      }
+    } catch (err) {
+      console.error("Error during upload attempt:", err.message);
+      // Log the error but continue to the next account
+    }
+  }
+
+  if (!uploaded) {
+    return res.status(400).send("Not enough storage available in any linked account.");
+  }
+});
+
+// Step 5: Download File from Google Drive
+app.get("/download/:fileId", async (req, res) => {
+  const fileId = req.params.fileId;
+
+  if (!req.session.tokens) {
+    return res.status(400).send("No account linked.");
+  }
+
+  oauth2Client.setCredentials(req.session.tokens[0]); // Use the first account for download
+  await refreshTokenIfNeeded(oauth2Client);
+
+  const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+  try {
+    // Get file metadata to determine the filename
+    const fileMetadata = await drive.files.get({ fileId, fields: "name" });
+    const fileName = fileMetadata.data.name;
+
+    // Set headers for file download
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Type", "application/octet-stream");
+
+    // Stream the file from Google Drive to the response
+    const response = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    response.data
+      .on("end", () => {
+        console.log("File downloaded successfully.");
+      })
+      .on("error", (err) => {
+        console.error("Error downloading file:", err.message);
+        res.status(500).send("Failed to download file.");
+      })
+      .pipe(res);
+  } catch (err) {
+    console.error("Google Drive API error:", err.response?.data || err.message);
+    res.status(500).send("Failed to download file.");
+  }
+});
+
+// Step 6: Delete File from Google Drive
+app.delete("/delete/:fileId", async (req, res) => {
+  const fileId = req.params.fileId;
+
+  if (!req.session.tokens) {
+    return res.status(400).send("No account linked.");
+  }
+
+  oauth2Client.setCredentials(req.session.tokens[0]); // Use the first account for deletion
+  await refreshTokenIfNeeded(oauth2Client);
+
+  const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+  try {
+    await drive.files.delete({ fileId });
+    res.send(`File with ID: ${fileId} deleted successfully.`);
+  } catch (err) {
+    console.error("Google Drive API error:", err.response?.data || err.message);
+    res.status(500).send("Failed to delete file.");
+  }
+});
+
+// Step 7: List Linked Accounts
+app.get("/accounts", (req, res) => {
+  res.json(req.session.tokens || []);
+});
+
+// Serve the homepage
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google Drive File Browser</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .folder {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .download-link {
+            margin-left: 10px;
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .download-link:hover {
+            text-decoration: underline;
+        }
+
+        .back-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google Drive File Browser</h1>
+        <button id="linkAccount">Link Google Drive Account</button>
+        
+
+        <div id="fileListSection">
+            <h2>Your Files</h2>
+            <button class="back-button" id="goBack" style="display: none;">Go Back</button>
+            <ul id="fileList"></ul>
+        </div>
+    </div>
+
+    <script>
+        let currentFolderId = "root";
+        const fileList = document.getElementById("fileList");
+        const goBackButton = document.getElementById("goBack");
+
+        document.getElementById("linkAccount").addEventListener("click", function () {
+            window.location.href = "/authorize";
+        });
+
+        async function loadFiles(folderId = "root") {
+            try {
+                const response = await fetch(`/drive?folderId=${folderId}`);
+                const files = await response.json();
+
+                fileList.innerHTML = ""; // Clear previous list
+
+                // Show "Go Back" button if not in root folder
+                goBackButton.style.display = folderId !== "root" ? "block" : "none";
+
+                files.forEach((file) => {
+                    const li = document.createElement("li");
+
+                    if (file.mimeType === "application/vnd.google-apps.folder") {
+                        // Display folder
+                        li.textContent = file.name;
+                        li.classList.add("folder");
+                        li.onclick = () => {
+                            currentFolderId = file.id;
+                            loadFiles(file.id);
+                        };
+                    } else {
+                        // Display file
+                        li.textContent = file.name;
+
+                        const downloadLink = document.createElement("a");
+                        downloadLink.href = `/download/${file.id}`;
+                        downloadLink.textContent = " (Download)";
+                        downloadLink.classList.add("download-link");
+
+                        li.appendChild(downloadLink);
+                    }
+
+                    fileList.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Error loading files:", error);
+                alert("Failed to load files.");
+            }
+        }
+
+        // Go back to the parent folder
+        goBackButton.addEventListener("click", async () => {
+            try {
+                const response = await fetch(`/drive/parent?folderId=${currentFolderId}`);
+                const parentFolderId = await response.text();
+
+                if (parentFolderId) {
+                    currentFolderId = parentFolderId;
+                    loadFiles(parentFolderId);
+                }
+            } catch (error) {
+                console.error("Error fetching parent folder:", error);
+                alert("Unable to go back.");
+            }
+        });
+
+        // Load files on page load
+        window.onload = () => loadFiles();
+    </script>
+</body>
+</html>

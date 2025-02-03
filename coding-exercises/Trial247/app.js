@@ -334,11 +334,29 @@ app.use(
   })
 );
 
+// Multer for file uploads
+const upload = multer({ dest: "uploads/" });
+
 // Helper: Refresh token if expired
 async function refreshTokenIfNeeded(auth) {
   if (!auth.credentials.expiry_date || auth.credentials.expiry_date <= Date.now()) {
     const { credentials } = await auth.refreshAccessToken();
     auth.setCredentials(credentials);
+  }
+}
+
+// Function to get available storage for a given account
+async function getAvailableStorage(auth) {
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    const response = await drive.about.get({
+      fields: "storageQuota",
+    });
+    const { storageQuota } = response.data;
+    return parseInt(storageQuota.limit) - parseInt(storageQuota.usage); // Available storage
+  } catch (err) {
+    console.error("Failed to get available storage:", err.message);
+    throw new Error("Failed to get available storage.");
   }
 }
 
@@ -411,6 +429,77 @@ app.get("/drive/parent", async (req, res) => {
   } catch (error) {
     console.error("Error fetching parent folder:", error.message);
     res.status(500).send("Unable to fetch parent folder.");
+  }
+});
+
+// Step 4: Upload File to Google Drive
+app.post("/upload", upload.single("file"), async (req, res) => {
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).send("No file uploaded.");
+  }
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(400).send("No accounts linked.");
+  }
+
+  const fileSize = file.size; // Size of the uploaded file
+  let uploaded = false;
+
+  oauth2Client.setCredentials(req.session.tokens);
+  await refreshTokenIfNeeded(oauth2Client);
+
+    try {
+      const availableStorage = await getAvailableStorage(oauth2Client);
+      console.log(`Available storage for account: ${availableStorage/1024/1024/1024} GB`);
+
+      if (availableStorage >= fileSize) {
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+        const fileMetadata = { name: file.originalname };
+        const media = { mimeType: file.mimetype, body: fs.createReadStream(file.path) };
+
+        const response = await drive.files.create({
+          resource: fileMetadata,
+          media: media,
+          fields: "id",
+        });
+
+        fs.unlinkSync(file.path); // Clean up uploaded file
+        uploaded = true;
+        return res.send(`File uploaded successfully! File ID: ${response.data.id}`);
+      } else {
+        console.log(`Not enough storage in this account. Trying next account...`);
+      }
+    } catch (err) {
+      console.error("Error during upload attempt:", err.message);
+      // Log the error but continue to the next account
+    }
+  
+  if (!uploaded) {
+    return res.status(400).send("Not enough storage available in any linked account.");
+  }
+});
+
+// Step 6: Delete File from Google Drive
+app.delete("/delete/:fileId", async (req, res) => {
+  const fileId = req.params.fileId;
+
+  if (!req.session.tokens) {
+    return res.status(400).send("No account linked.");
+  }
+
+  oauth2Client.setCredentials(req.session.tokens); // Use the first account for deletion
+  await refreshTokenIfNeeded(oauth2Client);
+
+  const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+  try {
+    await drive.files.delete({ fileId });
+    res.send(`File with ID: ${fileId} deleted successfully.`);
+  } catch (err) {
+    console.error("Google Drive API error:", err.response?.data || err.message);
+    res.status(500).send("Failed to delete file.");
   }
 });
 

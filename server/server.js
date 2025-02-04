@@ -6,6 +6,7 @@ const path = require("path");
 const session = require("express-session");
 require("dotenv").config();
 const pg = require("pg");
+const cors = require("cors");
 
 // PostgreSQL Connection
 const pool = new pg.Pool({
@@ -22,6 +23,7 @@ pool.connect()
 
 const app = express();
 const PORT = process.env.PORT;
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
 // Load OAuth2 client credentials
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -80,8 +82,15 @@ app.get("/oauth2callback", async (req, res) => {
   const code = req.query.code;
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    req.session.tokens = tokens;
-    res.redirect("/");
+    
+    // Initialize the session tokens array if it doesn't exist
+    if (!req.session.tokens) {
+      req.session.tokens = [];
+    }
+
+    // Add the new tokens to the session
+    req.session.tokens.push(tokens);
+    res.redirect("http://localhost:5173/all");
   } catch (error) {
     console.error("Error during OAuth:", error.message);
     res.status(500).send("Authentication failed.");
@@ -92,25 +101,30 @@ app.get("/oauth2callback", async (req, res) => {
 app.get("/drive", async (req, res) => {
   const folderId = req.query.folderId || "root";
 
-  if (!req.session.tokens) {
-    return res.status(401).send("No account linked.");
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(401).send("No accounts linked.");
   }
 
-  oauth2Client.setCredentials(req.session.tokens);
-  await refreshTokenIfNeeded(oauth2Client);
+  const files = [];
 
-  const drive = google.drive({ version: "v3", auth: oauth2Client });
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
 
-  try {
-    const response = await drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
-      fields: "files(id, name, mimeType)",
-    });
-    res.json(response.data.files);
-  } catch (error) {
-    console.error("Error listing files:", error.message);
-    res.status(500).send("Failed to retrieve files.");
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    try {
+      const response = await drive.files.list({
+        q: `'${folderId}' in parents and trashed = false`,
+        fields: "files(id, name, mimeType)",
+      });
+      files.push(...response.data.files);
+    } catch (error) {
+      console.error("Error listing files:", error.message);
+    }
   }
+
+  res.json(files);
 });
 
 // Endpoint: Get parent folder ID
@@ -152,12 +166,13 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   const fileSize = file.size; // Size of the uploaded file
   let uploaded = false;
 
-  oauth2Client.setCredentials(req.session.tokens);
-  await refreshTokenIfNeeded(oauth2Client);
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
 
     try {
       const availableStorage = await getAvailableStorage(oauth2Client);
-      console.log(`Available storage for account: ${availableStorage/1024/1024/1024} GB`);
+      console.log(`Available storage for account: ${availableStorage / 1024 / 1024 / 1024} GB`);
 
       if (availableStorage >= fileSize) {
         const drive = google.drive({ version: "v3", auth: oauth2Client });
@@ -179,66 +194,85 @@ app.post("/upload", upload.single("file"), async (req, res) => {
       }
     } catch (err) {
       console.error("Error during upload attempt:", err.message);
-      // Log the error but continue to the next account
     }
-  
+  }
+
   if (!uploaded) {
     return res.status(400).send("Not enough storage available in any linked account.");
   }
 });
 
-// Step 6: Delete File from Google Drive
+// Endpoint: Delete File from Google Drive
 app.delete("/delete/:fileId", async (req, res) => {
   const fileId = req.params.fileId;
 
-  if (!req.session.tokens) {
-    return res.status(400).send("No account linked.");
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(400).send("No accounts linked.");
   }
 
-  oauth2Client.setCredentials(req.session.tokens); // Use the first account for deletion
-  await refreshTokenIfNeeded(oauth2Client);
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
 
-  const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-  try {
-    await drive.files.delete({ fileId });
-    res.send(`File with ID: ${fileId} deleted successfully.`);
-  } catch (err) {
-    console.error("Google Drive API error:", err.response?.data || err.message);
-    res.status(500).send("Failed to delete file.");
+    try {
+      await drive.files.delete({ fileId });
+      return res.send(`File with ID: ${fileId} deleted successfully.`);
+    } catch (err) {
+      console.error("Google Drive API error while deleting:", err.response?.data || err.message);
+      // Continue to the next account if there's an error
+    }
   }
+
+  // If all accounts fail
+  res.status(500).send("Failed to delete file from all linked accounts.");
 });
 
 // Endpoint: Download file
 app.get("/download/:fileId", async (req, res) => {
   const fileId = req.params.fileId;
 
-  if (!req.session.tokens) {
-    return res.status(401).send("No account linked.");
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(401).send("No accounts linked.");
   }
 
-  oauth2Client.setCredentials(req.session.tokens);
-  await refreshTokenIfNeeded(oauth2Client);
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
 
-  const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-  try {
-    const fileMetadata = await drive.files.get({ fileId, fields: "name" });
-    const fileName = fileMetadata.data.name;
+    try {
+      const fileMetadata = await drive.files.get({ fileId, fields: "name" });
+      const fileName = fileMetadata.data.name;
 
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-    res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Type", "application/octet-stream");
 
-    const response = await drive.files.get(
-      { fileId, alt: "media" },
-      { responseType: "stream" }
-    );
+      const response = await drive.files.get(
+        { fileId, alt: "media" },
+        { responseType: "stream" }
+      );
 
-    response.data.pipe(res);
-  } catch (error) {
-    console.error("Error downloading file:", error.message);
-    res.status(500).send("Failed to download file.");
+      response.data.pipe(res);
+      response.data.on("end", () => {
+        console.log("Download completed.");
+      });
+      response.data.on("error", (err) => {
+        console.error("Error downloading file:", err);
+        // If there's an error, continue to the next account
+      });
+
+      return; // Exit the loop if the download is successful
+    } catch (error) {
+      console.error("Error downloading file from account:", error.message);
+      // Continue to the next account if there's an error
+    }
   }
+
+  // If all accounts fail
+  res.status(500).send("Failed to download file from all linked accounts.");
 });
 
 // Step 7: List Linked Accounts

@@ -7,6 +7,8 @@ const session = require("express-session");
 require("dotenv").config();
 const pg = require("pg");
 const cors = require("cors");
+const stream = require("stream");
+
 
 // PostgreSQL Connection
 const pool = new pg.Pool({
@@ -155,6 +157,7 @@ app.get("/drive/parent", async (req, res) => {
 // Step 4: Upload File to Google Drive
 app.post("/upload", upload.single("file"), async (req, res) => {
   const file = req.file;
+  const parentFolderId = req.body.folderId || "root";
 
   if (!file) {
     return res.status(400).send("No file uploaded.");
@@ -165,6 +168,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
   const fileSize = file.size; // Size of the uploaded file
   let uploaded = false;
+  console.log((fileSize / 1024 / 1024 / 1024).toFixed(2) + " GB");
 
   for (const token of req.session.tokens) {
     oauth2Client.setCredentials(token);
@@ -172,17 +176,36 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     try {
       const availableStorage = await getAvailableStorage(oauth2Client);
-      console.log(`Available storage for account: ${availableStorage / 1024 / 1024 / 1024} GB`);
+      console.log(`Available storage for account: ${(availableStorage / 1024 / 1024 / 1024).toFixed(2)} GB`);
+      const up = availableStorage - fileSize;
+      console.log((up / 1024 / 1024 / 1024).toFixed(2));
 
-      if (availableStorage >= fileSize) {
+      if (up > 0) {
         const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-        const fileMetadata = { name: file.originalname };
+        const fileMetadata = {
+          name: file.originalname,
+          parents: parentFolderId !== "root" ? [parentFolderId] : [], // If a parent folder is provided
+        };
         const media = { mimeType: file.mimetype, body: fs.createReadStream(file.path) };
+
+        // Create a writable stream to track progress
+        const progressStream = new stream.PassThrough();
+        let uploadedBytes = 0;
+
+        // Track upload progress
+        progressStream.on('data', (chunk) => {
+          uploadedBytes += chunk.length;
+          const percentCompleted = Math.round((uploadedBytes * 100) / fileSize);
+          console.log(`Upload progress: ${percentCompleted}%`);
+        });
 
         const response = await drive.files.create({
           resource: fileMetadata,
-          media: media,
+          media: {
+            mimeType: file.mimetype,
+            body: media.body.pipe(progressStream), // Pipe the media through the progress stream
+          },
           fields: "id",
         });
 
@@ -200,6 +223,96 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   if (!uploaded) {
     return res.status(400).send("Not enough storage available in any linked account.");
   }
+});
+
+// Upload Folder to Google Drive
+app.post("/upload-folder", upload.array("files"), async (req, res) => {
+  const files = req.files;
+  const parentFolderId = req.body.folderId || "root"; // Target folder
+  const folderName = req.body.folderName;
+
+  if (!files || files.length === 0) {
+    return res.status(400).send("No files uploaded.");
+  }
+  if (!folderName) {
+    return res.status(400).send("Folder name is missing.");
+  }
+
+  let createdFolderId = parentFolderId;
+
+  try {
+    oauth2Client.setCredentials(req.session.tokens[0]);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    // Step 1: Create a new folder in Google Drive
+    const folderMetadata = {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: parentFolderId !== "root" ? [parentFolderId] : [],
+    };
+
+    const folderResponse = await drive.files.create({
+      resource: folderMetadata,
+      fields: "id",
+    });
+
+    createdFolderId = folderResponse.data.id;
+    console.log(`📂 Folder "${folderName}" created. ID: ${createdFolderId}`);
+  } catch (error) {
+    console.error("❌ Error creating folder:", error.message);
+    return res.status(500).send("Failed to create folder.");
+  }
+
+  // Step 2: Upload all files into the created folder
+  let uploadedFiles = [];
+
+  for (const file of files) {
+    let uploaded = false;
+
+    for (const token of req.session.tokens) {
+      oauth2Client.setCredentials(token);
+      await refreshTokenIfNeeded(oauth2Client);
+
+      try {
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+        const fileMetadata = {
+          name: file.originalname,
+          parents: [createdFolderId],
+        };
+
+        const media = { mimeType: file.mimetype, body: fs.createReadStream(file.path) };
+
+        const response = await drive.files.create({
+          resource: fileMetadata,
+          media: media,
+          fields: "id",
+        });
+
+        // Clean up the uploaded file
+        fs.unlinkSync(file.path);
+        uploaded = true;
+        uploadedFiles.push({ fileName: file.originalname, fileId: response.data.id });
+
+        console.log(`✅ File "${file.originalname}" uploaded.`);
+        break;
+      } catch (err) {
+        console.error("❌ Error uploading file:", err.message);
+      }
+    }
+
+    if (!uploaded) {
+      return res.status(400).send(`Not enough storage to upload file: ${file.originalname}`);
+    }
+  }
+
+  res.json({
+    message: `Folder "${folderName}" uploaded successfully!`,
+    folderId: createdFolderId,
+    uploadedFiles,
+  });
 });
 
 // Endpoint: Delete File from Google Drive
@@ -273,6 +386,54 @@ app.get("/download/:fileId", async (req, res) => {
 
   // If all accounts fail
   res.status(500).send("Failed to download file from all linked accounts.");
+});
+
+// Create a folder in Google Drive
+app.post("/create-folder", async (req, res) => {
+  const { folderName, parentFolderId } = req.body;
+
+  if (!folderName) {
+    return res.status(400).send("Folder name is required.");
+  }
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(400).send("No accounts linked.");
+  }
+
+  let folderCreated = false;
+  let createdFolderId = null;
+
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    try {
+      const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+      const folderMetadata = {
+        name: folderName,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: parentFolderId ? [parentFolderId] : [], // If a parent folder is provided
+      };
+
+      const response = await drive.files.create({
+        resource: folderMetadata,
+        fields: "id",
+      });
+
+      createdFolderId = response.data.id;
+      folderCreated = true;
+      console.log(`Folder "${folderName}" created successfully! Folder ID: ${createdFolderId}`);
+      break; // Stop after first successful folder creation
+    } catch (error) {
+      console.error("Error creating folder:", error.message);
+    }
+  }
+
+  if (!folderCreated) {
+    return res.status(400).send("Failed to create folder.");
+  }
+
+  res.json({ message: "Folder created successfully!", folderId: createdFolderId });
 });
 
 // Step 7: List Linked Accounts

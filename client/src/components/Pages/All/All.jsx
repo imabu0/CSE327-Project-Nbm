@@ -20,7 +20,14 @@ export const All = () => {
         `http://localhost:8081/drive?folderId=${folderId}`,
         { withCredentials: true }
       );
-      setFiles(response.data);
+
+      // Ensure correct folder detection
+      const updatedFiles = response.data.map((file) => ({
+        ...file,
+        isFolder: file.mimeType === "application/vnd.google-apps.folder",
+      }));
+
+      setFiles(updatedFiles);
     } catch (error) {
       console.error("Error fetching files:", error);
     } finally {
@@ -33,14 +40,18 @@ export const All = () => {
       await axios.delete(`http://localhost:8081/delete/${fileId}`, {
         withCredentials: true,
       });
-      fetchFiles(); // Refresh file list
+      fetchFiles();
     } catch (error) {
       console.error("Error deleting file:", error);
     }
   };
 
-  const handleDownload = (fileId) => {
-    window.open(`http://localhost:8081/download/${fileId}`, "_blank");
+  const handleDownload = (id, isFolder) => {
+    const url = isFolder
+      ? `http://localhost:8081/download-folder/${id}`
+      : `http://localhost:8081/download/${id}`;
+
+    window.open(url, "_blank");
   };
 
   const handleFileChange = (e) => {
@@ -55,7 +66,7 @@ export const All = () => {
 
     const formData = new FormData();
     formData.append("file", uploadFile);
-    formData.append("folderId", folderId === "root" ? "" : folderId); // Ensure correct folder ID
+    formData.append("folderId", folderId === "root" ? "" : folderId);
 
     try {
       const response = await fetch("http://localhost:8081/upload", {
@@ -64,17 +75,16 @@ export const All = () => {
         credentials: "include",
       });
 
-      const result = await response.json();
-      alert(result.message);
-      fetchFiles(); // Refresh file list
+      alert("File uploaded successfully!");
+      fetchFiles();
     } catch (error) {
       console.error("Error uploading file:", error);
     }
   };
 
-  // Preview files
+  // Navigate to folder or preview file
   const openFile = (file) => {
-    if (file.mimeType === "application/vnd.google-apps.folder") {
+    if (file.isFolder) {
       setFolderId(file.id);
     } else {
       setSelectedFile(file);
@@ -83,36 +93,15 @@ export const All = () => {
 
   // Get file icon based on MIME type
   const getFileIcon = (mimeType) => {
-    if (mimeType.startsWith("image/")) {
-      return "🖼️"; // Image icon
-    } else if (mimeType === "application/pdf") {
-      return "📄"; // PDF icon
-    } else if (
-      mimeType === "application/vnd.ms-powerpoint" ||
-      mimeType ===
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    ) {
-      return "📊"; // PowerPoint icon
-    } else if (mimeType.startsWith("video/")) {
-      return "🎥"; // Video icon
-    } else if (
-      mimeType.startsWith("application/vnd.google-apps.document") ||
-      mimeType.startsWith("application/msword") ||
-      mimeType.startsWith(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      )
-    ) {
-      return "📝"; // Document icon
-    } else if (
-      mimeType === "application/zip" ||
-      mimeType === "application/x-zip-compressed"
-    ) {
-      return "📦"; // ZIP file icon
-    } else if (mimeType === "application/vnd.google-apps.folder") {
-      return "📁"; // Folder icon
-    } else {
-      return "📄"; // Default file icon
-    }
+    if (mimeType.startsWith("image/")) return "🖼️";
+    if (mimeType === "application/pdf") return "📄";
+    if (mimeType.includes("powerpoint")) return "📊";
+    if (mimeType.startsWith("video/")) return "🎥";
+    if (mimeType.includes("document") || mimeType.includes("msword"))
+      return "📝";
+    if (mimeType.includes("zip")) return "📦";
+    if (mimeType === "application/vnd.google-apps.folder") return "📁";
+    return "📄";
   };
 
   return (
@@ -162,7 +151,7 @@ export const All = () => {
                         className="m-auto cursor-pointer"
                         src="img/download.svg"
                         alt="download"
-                        onClick={() => handleDownload(file.id)}
+                        onClick={() => handleDownload(file.id, file.isFolder)}
                       />
                     </td>
                     <td>
@@ -190,15 +179,14 @@ export const All = () => {
                 <div className="mt-4">
                   <input
                     type="file"
-                    id="fileInput"
                     onChange={handleFileChange}
-                    className="mt-2 border p-2"
+                    className="border p-2"
                   />
                   <button
                     onClick={uploadFileToDrive}
                     className="bg-green-500 text-white px-4 py-2 rounded ml-2"
                   >
-                    Upload File
+                    Upload Here
                   </button>
                 </div>
               </div>
@@ -209,7 +197,7 @@ export const All = () => {
               <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-70 flex justify-center items-center p-4">
                 <div className="bg-white p-4 rounded-lg w-[1000px]">
                   <h2 className="text-lg font-bold mb-4 flex items-center justify-between">
-                    {getFileIcon(selectedFile.mimeType)} {selectedFile.name}{" "}
+                    {getFileIcon(selectedFile.mimeType)} {selectedFile.name}
                     <span
                       onClick={() => setSelectedFile(null)}
                       className="cursor-pointer"
@@ -218,10 +206,11 @@ export const All = () => {
                     </span>
                   </h2>
 
-                  {/* Use Google Drive viewer for ALL file types */}
+                  {/* Google Drive Viewer */}
                   <iframe
                     src={`https://drive.google.com/file/d/${selectedFile.id}/preview`}
                     className="rounded-lg w-full h-[500px]"
+                    allowFullScreen
                   />
                 </div>
               </div>

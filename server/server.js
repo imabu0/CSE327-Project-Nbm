@@ -8,7 +8,7 @@ require("dotenv").config();
 const pg = require("pg");
 const cors = require("cors");
 const stream = require("stream");
-
+const archiver = require("archiver");
 
 // PostgreSQL Connection
 const pool = new pg.Pool({
@@ -154,7 +154,7 @@ app.get("/drive/parent", async (req, res) => {
   }
 });
 
-// Step 4: Upload File to Google Drive
+// Upload File to Google Drive
 app.post("/upload", upload.single("file"), async (req, res) => {
   const file = req.file;
   const parentFolderId = req.body.folderId || "root";
@@ -223,6 +223,84 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   if (!uploaded) {
     return res.status(400).send("Not enough storage available in any linked account.");
   }
+});
+
+// Chunk and upload
+app.post("/chunk", upload.single("file"), async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).send("No file uploaded.");
+  if (!req.session.tokens || req.session.tokens.length === 0)
+    return res.status(400).send("No accounts linked.");
+
+  const fileSize = file.size;
+  let startByte = 0;
+  let chunkIndex = 1;
+  const chunkUploads = []; // Store uploaded chunk info
+
+  console.log(`File Size: ${(fileSize / 1024 / 1024 / 1024).toFixed(2)} GB`);
+
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    try {
+      const availableStorage = await getAvailableStorage(oauth2Client);
+      console.log(`Available Storage: ${(availableStorage / 1024 / 1024 / 1024).toFixed(2)} GB`);
+
+      if (availableStorage <= 0) continue;
+
+      const chunkSize = Math.min(availableStorage, fileSize - startByte);
+      if (chunkSize <= 0) break;
+
+      const chunkPath = `${file.path}.part${chunkIndex}`;
+      const chunkFile = fs.createWriteStream(chunkPath);
+      const readStream = fs.createReadStream(file.path, { start: startByte, end: startByte + chunkSize - 1 });
+
+      console.log(`Creating chunk ${chunkIndex} (${(chunkSize / 1024 / 1024).toFixed(2)} MB)`);
+
+      await new Promise((resolve, reject) => {
+        readStream.pipe(chunkFile);
+        chunkFile.on("finish", resolve);
+        chunkFile.on("error", reject);
+      });
+
+      const drive = google.drive({ version: "v3", auth: oauth2Client });
+      const fileMetadata = { name: `${file.originalname}.part${chunkIndex}` };
+      const media = { mimeType: file.mimetype, body: fs.createReadStream(chunkPath) };
+
+      // Track upload progress
+      const progressStream = new stream.PassThrough();
+      let uploadedBytes = 0;
+      progressStream.on("data", (chunk) => {
+        uploadedBytes += chunk.length;
+        const percentCompleted = ((uploadedBytes / chunkSize) * 100).toFixed(2);
+        console.log(`Uploading Chunk ${chunkIndex}: ${percentCompleted}% completed`);
+      });
+
+      const response = await drive.files.create({
+        resource: fileMetadata,
+        media: {
+          mimeType: media.mimeType,
+          body: media.body.pipe(progressStream),
+        },
+        fields: "id",
+      });
+
+      console.log(`Uploaded Chunk ${chunkIndex}: File ID - ${response.data.id}`);
+      chunkUploads.push({ part: chunkIndex, fileId: response.data.id });
+
+      fs.unlinkSync(chunkPath); // Remove chunk after upload
+
+      startByte += chunkSize;
+      chunkIndex++;
+      if (startByte >= fileSize) break;
+    } catch (err) {
+      console.error("Error uploading chunk:", err.message);
+    }
+  }
+
+  fs.unlinkSync(file.path); // Remove the original uploaded file
+  res.send({ message: "File uploaded in chunks successfully!", chunks: chunkUploads });
 });
 
 // Upload Folder to Google Drive
@@ -388,6 +466,52 @@ app.get("/download/:fileId", async (req, res) => {
   res.status(500).send("Failed to download file from all linked accounts.");
 });
 
+// Zip and download folder
+app.get("/download-folder/:folderId", async (req, res) => {
+  const folderId = req.params.folderId;
+
+  if (!req.session.tokens || req.session.tokens.length === 0) {
+    return res.status(401).send("No accounts linked.");
+  }
+
+  for (const token of req.session.tokens) {
+    oauth2Client.setCredentials(token);
+    await refreshTokenIfNeeded(oauth2Client);
+
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    try {
+      const folderMetadata = await drive.files.get({ fileId: folderId, fields: "name" });
+      const folderName = folderMetadata.data.name || "folder";
+
+      const { data } = await drive.files.list({
+        q: `'${folderId}' in parents`,
+        fields: "files(id, name, mimeType)",
+      });
+
+      if (!data.files.length) return res.status(404).send("Folder is empty.");
+
+      res.setHeader("Content-Disposition", `attachment; filename="${folderName}.zip"`);
+      res.setHeader("Content-Type", "application/zip");
+
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.pipe(res);
+
+      for (const file of data.files) {
+        const response = await drive.files.get({ fileId: file.id, alt: "media" }, { responseType: "stream" });
+        archive.append(response.data, { name: file.name });
+      }
+
+      archive.finalize();
+      return;
+    } catch (error) {
+      console.error("Error downloading folder:", error.message);
+    }
+  }
+
+  res.status(500).send("Failed to download folder.");
+});
+
 // Create a folder in Google Drive
 app.post("/create-folder", async (req, res) => {
   const { folderName, parentFolderId } = req.body;
@@ -436,7 +560,7 @@ app.post("/create-folder", async (req, res) => {
   res.json({ message: "Folder created successfully!", folderId: createdFolderId });
 });
 
-// Step 7: List Linked Accounts
+// List Linked Accounts
 app.get("/accounts", (req, res) => {
   res.json(req.session.tokens || []);
 });

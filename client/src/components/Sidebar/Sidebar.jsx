@@ -105,6 +105,32 @@ export const Sidebar = () => {
     }
   };
 
+  // Chunk
+  const chunk = async (file) => {
+    if (!file) {
+      alert("Please select a file.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8081/chunk",
+        formData,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      alert(response.data.message);
+      fetchFiles(); // Refresh file list
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
+  };
+
   return (
     <div className="w-[350px] h-[100vh] bg-ternary sticky top-0">
       {/* Logo */}
@@ -163,6 +189,20 @@ export const Sidebar = () => {
                 multiple
                 className="hidden"
                 onChange={(e) => uploadFolderToDrive(e.target.files)}
+              />
+            </div>
+            <div>
+              <div
+                onClick={() => document.getElementById("chunk").click()}
+                className="w-full h-[40px] flex items-center justify-center rounded-sm cursor-pointer hover:bg-bg mt-2"
+              >
+                Chunk
+              </div>
+              <input
+                id="chunk"
+                type="file"
+                className="hidden"
+                onChange={(e) => chunk(e.target.files[0])} // Pass file directly
               />
             </div>
           </div>

@@ -7,7 +7,6 @@ import { Files } from "./components/Pages/Files/Files";
 import { Images } from "./components/Pages/Images/Images";
 import { Test } from "./components/Pages/Test/Test";
 import { Upload } from "./components/Pages/Test/Upload";
-import FileManager from "./components/Auth/FileManager";
 
 function App() {
 
@@ -21,7 +20,6 @@ function App() {
         <Route exact path="/images" element={<Images />} />
         <Route exact path="/test" element={<Test />} />
         <Route exact path="/upload" element={<Upload />} />
-        <Route exact path="/filemanager" element={<FileManager />} />
       </Routes>
     </Main>
   )

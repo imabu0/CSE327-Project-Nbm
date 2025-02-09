@@ -10,3 +10,11 @@ CREATE TABLE user_info (
 INSERT INTO user_info (name, username, password) VALUES
 ('John Doe', 'johndoe', 'password123'),
 ('Jane Smith', 'janesmith', 'securepass456');
+
+-- store linked buckets info
+CREATE TABLE google_accounts (
+  id SERIAL PRIMARY KEY,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL UNIQUE,
+  expiry_date BIGINT NOT NULL
+);

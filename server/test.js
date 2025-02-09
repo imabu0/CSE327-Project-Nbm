@@ -1,20 +1,26 @@
-/*TESTING
-import express from "express";
-import pkg from "pg";
-import dotenv from "dotenv";
-import cors from "cors";
-import multer from "multer";
-import fs from "fs";
-import { google } from "googleapis";
-import path from "path";
+const fs = require("fs");
+const express = require("express");
+const cors = require("cors");
+const session = require("express-session");
+const { google } = require("googleapis");
+const { Pool } = require("pg");
+require("dotenv").config();
 
-// Load the environment variables
-dotenv.config();
+const app = express();
+const PORT = 8081;
 
-const { Client } = pkg; // Destructure Client from the imported module
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(express.json());
+app.use(
+  session({
+    secret: "your-secret-key",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
-// Create a new client instance
-const client = new Client({
+// **🔹 PostgreSQL Connection**
+const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_DATABASE,
@@ -22,30 +28,9 @@ const client = new Client({
   port: process.env.DB_PORT,
 });
 
-// Connect to the PostgreSQL database
-async function connectToDatabase() {
-  try {
-    await client.connect();
-    console.log("Connected to the PostgreSQL database");
-  } catch (error) {
-    console.error("Error connecting to the PostgreSQL database", error);
-    process.exit(1); // Exit the process if the database connection fails
-  }
-}
-
-// Call the function to connect to the database
-connectToDatabase();
-
-const app = express();
-
-// Middleware to parse JSON requests
-app.use(express.json());
-app.use(cors());
-
-// Define a route to register a new user
+// **🔹 Define a route to register a new user
 app.post("/register", async (req, res) => {
   const { name, username, password } = req.body;
-
   try {
     const result = await client.query(
       "INSERT INTO user_info (name, username, password) VALUES ($1, $2, $3) RETURNING *",
@@ -58,10 +43,9 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Define a route to login a user
+// **🔹 Define a route to login a user
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-
   try {
     const result = await client.query(
       "SELECT * FROM user_info WHERE username = $1 AND password = $2",
@@ -78,533 +62,110 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Load Google API credentials
-const KEYFILEPATH = "./credentials.json";
+// **🔹 Load credentials.json**
+let credentials;
+try {
+  credentials = JSON.parse(fs.readFileSync("credentials.json")).web;
+} catch (error) {
+  console.error("❌ Failed to load credentials.json:", error.message);
+  process.exit(1);
+}
+
 const SCOPES = ["https://www.googleapis.com/auth/drive"];
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILEPATH,
-  scopes: SCOPES,
-});
-
-const drive = google.drive({ version: "v3", auth });
-
-// Multer setup
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Save to local 'uploads' folder temporarily
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
-
-const upload = multer({ storage });
-
-// List of folder IDs
-const folderIds = [
-  process.env.FOLDER_ID_1,
-  process.env.FOLDER_ID_2,
-  process.env.FOLDER_ID_3,
-  process.env.FOLDER_ID_4,
-];
-
-// Get available size of a bucket
-async function getFolderSize(folderId) {
-  try {
-    let totalSize = 0;
-    let pageToken = null;
-
-    do {
-      const response = await drive.files.list({
-        q: `'${folderId}' in parents and trashed = false`, // Files in the folder
-        fields: "nextPageToken, files(id, name, size)", // Get file size
-        pageToken: pageToken,
-      });
-
-      response.data.files.forEach((file) => {
-        if (file.size) {
-          totalSize += parseInt(file.size); // Add file size
-        }
-      });
-
-      pageToken = response.data.nextPageToken;
-    } while (pageToken);
-
-    console.log(
-      `Total size of folder (ID: ${folderId}): ${
-        totalSize / 1024 / 1024 / 1024
-      } GB`
-    );
-    return totalSize;
-  } catch (error) {
-    console.error("Error fetching folder size:", error.message);
-  }
-}
-
-// Define a route to upload a file to Google Drive
-async function uploadToDrive(file) {
-  const fileStats = fs.statSync(file.path);
-  const fileSize = fileStats.size; // File size in bytes
-  console.log(`File size: ${(fileSize / (1024 * 1024 * 1024)).toFixed(2)} GB`);
-
-  for (let i = 0; i < folderIds.length; i++) {
-    const folderSize = await getFolderSize(folderIds[i]);
-    console.log(`Folder ${i + 1} size: ${(folderSize / (1024 * 1024 * 1024)).toFixed(2)} GB`);
-
-    if (folderSize + fileSize < 15 * 1024 * 1024 * 1024) {
-      const fileMetadata = {
-        name: file.originalname,
-        parents: [folderIds[i]], // Upload to this folder
-      };
-
-      try {
-        console.log(`Uploading file to folder ${i + 1}`);
-
-        const res = await drive.files.create({
-          requestBody: fileMetadata,
-          media: { mimeType: file.mimetype, body: fs.createReadStream(file.path) },
-          fields: "id",
-          supportsAllDrives: true, // Required for shared drives
-        }, {
-          onUploadProgress: (event) => {
-            const progress = ((event.bytesRead / fileSize) * 100).toFixed(2);
-            console.log(`Upload progress: ${progress}%`); // Log upload progress
-          }
-        });
-
-        console.log(`File uploaded successfully. File ID: ${res.data.id}`);
-        return res.data;
-      } catch (error) {
-        console.error("Error uploading file to Drive:", error.message);
-        throw error;
-      } finally {
-        fs.unlinkSync(file.path); // Delete file from local storage after upload
-      }
-    }
-  }
-
-  console.log("No available space in the folders to upload the file.");
-}
-
-// Define a route to upload files to Google Drive
-app.post("/upload", upload.single("file"), async (req, res) => {
-  try {
-    const file = req.file;
-    if (!file) {
-      return res.status(400).send("No file uploaded.");
-    }
-
-    const driveResponse = await uploadToDrive(file);
-    res.status(200).send(`File uploaded to Drive with ID: ${driveResponse.id}`);
-  } catch (error) {
-    res.status(500).send("Error uploading file: " + error.message);
-  }
-});
-
-// Define a route to list files in Google Drive
-
-// Define a route to download a file from Google Drive
-
-// Define a route to delete a file from Google Drive
-
-//TEST TEST TEST
-// Utility function to split and upload file to Google Drive
-async function splitAndUploadToDrive(filePath, chunkSizeMB = 30) {
-  const chunkSize = chunkSizeMB * 1024 * 1024; // Convert MB to bytes
-  const fileStats = fs.statSync(filePath); // Get file info
-  const totalChunks = Math.ceil(fileStats.size / chunkSize);
-  const fileName = path.basename(filePath, path.extname(filePath)); // Get file name without extension
-  const fileExtension = path.extname(filePath); // Get file extension
-
-  console.log(`File size: ${fileStats.size / 1024} MB`);
-  console.log(`Splitting file into ${totalChunks} chunks...`);
-  const uploadedChunks = [];
-
-  try {
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, fileStats.size);
-
-      const chunkPath = `${fileName}_part_${i + 1}${fileExtension}`;
-      const writeStream = fs.createWriteStream(chunkPath);
-      const readStream = fs.createReadStream(filePath, { start, end: end - 1 });
-
-      // Write chunk to temporary file
-      await new Promise((resolve, reject) => {
-        readStream.pipe(writeStream);
-        writeStream.on("finish", resolve);
-        writeStream.on("error", reject);
-      });
-
-      console.log(`Uploading chunk ${i + 1} of ${totalChunks}...`);
-
-      // Upload the chunk to Google Drive
-      const folderId = process.env[`FOLDER_ID_${i + 1}`]; // Dynamically access the variable
-
-      const fileMetadata = {
-        name: `${fileName}_part_${i + 1}${fileExtension}`,
-        parents: [folderId], // Use the dynamically accessed folder ID
-      };
-
-      const media = {
-        mimeType: "application/octet-stream",
-        body: fs.createReadStream(chunkPath),
-      };
-
-      const response = await drive.files.create({
-        requestBody: fileMetadata,
-        media,
-        fields: "id",
-      });
-
-      uploadedChunks.push({
-        chunk: i + 1,
-        fileId: response.data.id,
-        name: fileMetadata.name,
-      });
-
-      console.log(
-        `Chunk ${i + 1} uploaded successfully. File ID: ${response.data.id}`
-      );
-
-      // Clean up temporary chunk file
-      fs.unlinkSync(chunkPath);
-    }
-
-    console.log("All chunks uploaded successfully.");
-    return uploadedChunks;
-  } catch (error) {
-    console.error("Error during file upload:", error.message);
-    throw error;
-  }
-}
-
-// API route to upload and process file
-app.post("/chunk", upload.single("file"), async (req, res) => {
-  try {
-    const filePath = req.file.path; // Path of the uploaded file
-    console.log(`Received file: ${req.file.originalname}`);
-
-    // Split and upload file to Google Drive
-    const uploadedChunks = await splitAndUploadToDrive(filePath);
-
-    // Clean up uploaded file
-    fs.unlinkSync(filePath);
-
-    res.status(200).json({
-      message: "File uploaded and split successfully.",
-      uploadedChunks,
-    });
-  } catch (error) {
-    console.error("Error handling file upload:", error.message);
-    res.status(500).json({ error: "File upload failed." });
-  }
-});
-
-// Start the server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});*/
-
-const express = require("express");
-const cors = require("cors");
-const { google } = require("googleapis");
-const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
-const session = require("express-session");
-require("dotenv").config();
-const pg = require("pg");
-
-// PostgreSQL Connection
-const pool = new pg.Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-
-pool.connect()
-  .then(() => console.log("✅ PostgreSQL Connected Successfully"))
-  .catch((err) => console.error("❌ PostgreSQL Connection Failed:", err));
-
-const app = express();
-const PORT = process.env.PORT;
-
-// Load OAuth2 client credentials
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REDIRECT_URI = process.env.REDIRECT_URI;
-
 const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI
+  credentials.client_id,
+  credentials.client_secret,
+  credentials.redirect_uris[0]
 );
 
-// Middleware to serve static files (frontend)
-app.use(express.static(path.join(__dirname, "build"))); // Serve React app from build directory
-app.use(express.json());
-app.use(cors({
-  origin: 'http://localhost:5173', // Adjust this to your React app's URL
-  credentials: true,
-}));
-app.use(
-  session({
-    secret: "your-secret-key",
-    resave: false,
-    saveUninitialized: true,
-  })
-);
+// **🔹 Save tokens to PostgreSQL**
+const saveTokens = async (tokens) => {
+  try {
+    await pool.query(
+      "INSERT INTO google_accounts (access_token, refresh_token, expiry_date) VALUES ($1, $2, $3) ON CONFLICT (refresh_token) DO UPDATE SET access_token = EXCLUDED.access_token, expiry_date = EXCLUDED.expiry_date",
+      [tokens.access_token, tokens.refresh_token, tokens.expiry_date]
+    );
+    console.log("✅ Tokens saved to PostgreSQL.");
+  } catch (error) {
+    console.error("❌ Error saving tokens to PostgreSQL:", error.message);
+  }
+};
 
-// Multer for file uploads
-const upload = multer({ dest: "uploads/" });
+// **🔹 Load tokens from PostgreSQL**
+const loadTokens = async () => {
+  try {
+    const res = await pool.query("SELECT * FROM google_accounts");
+    return res.rows;
+  } catch (error) {
+    console.error("❌ Error loading tokens from PostgreSQL:", error.message);
+    return [];
+  }
+};
 
-// Function to refresh token if expired
+// **🔹 Refresh Token if Expired**
 async function refreshTokenIfNeeded(auth) {
-  try {
-    if (
-      !auth.credentials.expiry_date ||
-      auth.credentials.expiry_date <= Date.now()
-    ) {
-      console.log(`Refreshing access token`);
-      const { credentials } = await auth.refreshAccessToken();
-      auth.setCredentials(credentials);
-    }
-  } catch (err) {
-    console.error("Failed to refresh access token:", err.message);
+  if (!auth.credentials.expiry_date || auth.credentials.expiry_date <= Date.now()) {
+    const { credentials } = await auth.refreshAccessToken();
+    auth.setCredentials(credentials);
+    await saveTokens(credentials);
   }
 }
 
-// Function to get available storage for a given account
-async function getAvailableStorage(auth) {
-  const drive = google.drive({ version: "v3", auth });
-  try {
-    const response = await drive.about.get({
-      fields: "storageQuota",
-    });
-    const { storageQuota } = response.data;
-    return parseInt(storageQuota.limit) - parseInt(storageQuota.usage); // Available storage
-  } catch (err) {
-    console.error("Failed to get available storage:", err.message);
-    throw new Error("Failed to get available storage.");
-  }
-}
-
-// Step 1: Start OAuth Flow
+// **🔹 OAuth Authorization**
 app.get("/authorize", (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    scope: ["https://www.googleapis.com/auth/drive"],
+    scope: SCOPES,
+    prompt: "consent",
   });
   res.redirect(authUrl);
 });
 
-// Step 2: Handle OAuth Callback
+// **🔹 OAuth Callback (Save Multiple Accounts)**
 app.get("/oauth2callback", async (req, res) => {
   const code = req.query.code;
-
   try {
-    const { tokens: userTokens } = await oauth2Client.getToken(code);
-
-    // Initialize tokens array if it doesn't exist
-    if (!req.session.tokens) {
-      req.session.tokens = [];
-    }
-
-    // Add new tokens to the array
-    req.session.tokens.push(userTokens);
-    res.redirect("http://localhost:5173/oauthupload"); // Redirect to the React app
-  } catch (err) {
-    console.error("Error during authentication:", err.message);
-    res.status(500).send("Error during authentication.");
+    const { tokens } = await oauth2Client.getToken(code);
+    await saveTokens(tokens);
+    res.redirect("http://localhost:5173/all");
+  } catch (error) {
+    console.error("❌ OAuth Error:", error.message);
+    res.status(500).send("Authentication failed.");
   }
 });
 
-// Step 3: View Files in Google Drive
+// **🔹 List Google Drive Files (Using All Accounts)**
 app.get("/drive", async (req, res) => {
-  if (!req.session.tokens) {
-    return res.status(400).send("No account linked.");
+  const folderId = req.query.folderId || "root";
+  const storedTokens = await loadTokens();
+
+  if (!storedTokens.length) {
+    return res.status(401).send("❌ No accounts linked. Please authorize.");
   }
 
   const files = [];
-  for (const userTokens of req.session.tokens) {
-    oauth2Client.setCredentials(userTokens);
+
+  for (const token of storedTokens) {
+    oauth2Client.setCredentials(token);
     await refreshTokenIfNeeded(oauth2Client);
 
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
     try {
       const response = await drive.files.list({
-        pageSize: 100,
+        q: `'${folderId}' in parents and trashed = false`,
         fields: "files(id, name, mimeType)",
-        q: "'root' in parents or trashed=false",
       });
-
       files.push(...response.data.files);
-    } catch (err) {
-      console.error(
-        "Google Drive API error:",
-        err.response?.data || err.message
-      );
-      return res.status(500).send("Failed to retrieve files.");
+    } catch (error) {
+      console.error("❌ Error listing files:", error.message);
     }
   }
 
-  if (files.length) {
-    res.json(files);
-  } else {
-    res.send("No files found.");
-  }
+  res.json(files);
 });
 
-// Step 4: Upload File to Google Drive
-app.post("/upload", upload.single("file"), async (req, res) => {
-  const file = req.file;
-
-  if (!file) {
-    return res.status(400).send("No file uploaded.");
-  }
-  if (!req.session.tokens || req.session.tokens.length === 0) {
-    return res.status(400).send("No accounts linked.");
-  }
-
-  const fileSize = file.size; // Size of the uploaded file
-  let uploaded = false;
-
-  for (const userTokens of req.session.tokens) {
-    oauth2Client.setCredentials(userTokens);
-    await refreshTokenIfNeeded(oauth2Client);
-
-    try {
-      const availableStorage = await getAvailableStorage(oauth2Client);
-      console.log(
-        `Available storage for account: ${
-          availableStorage / 1024 / 1024 / 1024
-        } GB`
-      );
-
-      if (availableStorage >= fileSize) {
-        const drive = google.drive({ version: "v3", auth: oauth2Client });
-
-        const fileMetadata = { name: file.originalname };
-        const media = {
-          mimeType: file.mimetype,
-          body: fs.createReadStream(file.path),
-        };
-
-        const response = await drive.files.create({
-          resource: fileMetadata,
-          media: media,
-          fields: "id",
-        });
-
-        fs.unlinkSync(file.path); // Clean up uploaded file
-        uploaded = true;
-        return res.send(
-          `File uploaded successfully! File ID: ${response.data.id}`
-        );
-      } else {
-        console.log(
-          `Not enough storage in this account. Trying next account...`
-        );
-      }
-    } catch (err) {
-      console.error("Error during upload attempt:", err.message);
-      // Log the error but continue to the next account
-    }
-  }
-
-  if (!uploaded) {
-    return res
-      .status(400)
-      .send("Not enough storage available in any linked account.");
-  }
-});
-
-// Step 5: Download File from Google Drive
-app.get("/download/:fileId", async (req, res) => {
-  const fileId = req.params.fileId;
-  if (!req.session.tokens) {
-    return res.status(400).send("No account linked.");
-  }
-  oauth2Client.setCredentials(req.session.tokens[0]); // Use the first account for download
-  await refreshTokenIfNeeded(oauth2Client);
-  const drive = google.drive({ version: "v3", auth: oauth2Client });
-  try {
-    // Get file metadata to determine the filename
-    const fileMetadata = await drive.files.get({ fileId, fields: "name" });
-    const fileName = fileMetadata.data.name;
-    // Set headers for file download
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-    res.setHeader("Content-Type", "application/octet-stream");
-    // Stream the file from Google Drive to the response
-    const response = await drive.files.get(
-      { fileId, alt: "media" },
-      { responseType: "stream" }
-    );
-    response.data
-      .on("end", () => {
-        console.log("File downloaded successfully.");
-      })
-      .on("error", (err) => {
-        console.error("Error downloading file:", err.message);
-        res.status(500).send("Failed to download file.");
-      })
-      .pipe(res);
-  } catch (err) {
-    console.error("Google Drive API error:", err.response?.data || err.message);
-    res.status(500).send("Failed to download file.");
-  }
-});
-
-// Step 6: Delete File from Google Drive
-app.delete("/delete/:fileId", async (req, res) => {
-  const fileId = req.params.fileId;
-
-  if (!req.session.tokens || req.session.tokens.length === 0) {
-    return res.status(400).send("No account linked.");
-  }
-
-  let deleted = false;
-
-  for (const userTokens of req.session.tokens) {
-    oauth2Client.setCredentials(userTokens); // Set the credentials for the current account
-    await refreshTokenIfNeeded(oauth2Client);
-
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
-
-    try {
-      await drive.files.delete({ fileId });
-      deleted = true;
-      console.log(`File with ID: ${fileId} deleted successfully from one of the accounts.`);
-      break; // Exit the loop if deletion is successful
-    } catch (err) {
-      console.error("Google Drive API error:", err.response?.data || err.message);
-      // Log the error but continue to the next account
-    }
-  }
-
-  if (deleted) {
-    return res.send(`File with ID: ${fileId} deleted successfully from one of the linked accounts.`);
-  } else {
-    return res.status(400).send("Failed to delete file from all linked accounts.");
-  }
-});
-
-// Step 7: List Linked Accounts
-app.get("/accounts", (req, res) => {
-  res.json(req.session.tokens || []);
-});
-
-// Serve the React app
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// Start the server
+// **🔹 Start Server**
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

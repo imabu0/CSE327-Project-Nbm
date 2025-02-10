@@ -11,6 +11,24 @@ export const Sidebar = () => {
   const [dropDown, setDropDown] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folderId, setFolderId] = useState("root");
+  const role = localStorage.getItem("role")
+
+  const routes = bData.filter((b) => {
+    if (role === "admin") {
+      return (
+        b.title === "Dashboard" ||
+        b.title === "All" ||
+        b.title === "Files" ||
+        b.title === "Images & Videos"
+      );
+    } else {
+      return (
+        b.title === "All" ||
+        b.title === "Files"||
+        b.title === "Images & Videos"
+      );
+    }
+  });
 
   // Handle File Selection & Auto Upload
   const handleFileChange = async (event) => {
@@ -221,7 +239,7 @@ export const Sidebar = () => {
         )}
         {/* Sidebar Routes */}
         <div className="flex flex-col gap-2 mt-6">
-          {bData.map((b) => (
+          {routes.map((b) => (
             <Link
               to={b.link}
               key={b.id}

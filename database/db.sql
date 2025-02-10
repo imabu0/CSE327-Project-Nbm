@@ -1,15 +1,11 @@
 -- create user_info table
-CREATE TABLE user_info (
-    user_id SERIAL PRIMARY KEY,
-    name VARCHAR(50),
-    username VARCHAR(50),
-    password VARCHAR(50)
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  username VARCHAR(255) UNIQUE NOT NULL,
+  password varchar(255) NOT NULL,
+  role varchar(255) NOT NULL
 );
-
--- dummy values for user_info table
-INSERT INTO user_info (name, username, password) VALUES
-('John Doe', 'johndoe', 'password123'),
-('Jane Smith', 'janesmith', 'securepass456');
 
 -- store linked buckets info
 CREATE TABLE google_accounts (

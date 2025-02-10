@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Sidebar } from "../../Sidebar/Sidebar";
+import { Avatar } from "../../Profile/Avatar";
+import { Spin } from "antd";
+import { LoadingOutlined } from "@ant-design/icons";
 
 export const All = () => {
   const [files, setFiles] = useState([]);
@@ -104,47 +107,52 @@ export const All = () => {
     return "📄";
   };
 
+  const customIcon = (
+    <LoadingOutlined style={{ fontSize: 40, color: "#ED7631" }} spin />
+  );
+  
   return (
     <div className="flex">
       <Sidebar />
       <div className="w-full px-3">
-        <div className="mt-3">
+        <div className="mt-3 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">All</h1>
+          <Avatar />
         </div>
 
-        {loading && <p className="text-center">Loading...</p>}
+        {loading && (
+          <div className="flex justify-center">
+            <Spin size="large" indicator={customIcon} />
+          </div>
+        )}
         {!loading && (
-          <div className="bg-ternary rounded-sm">
-            <button
-              onClick={() =>
-                (window.location.href = "http://localhost:8081/authorize")
-              }
-              className="bg-primary text-white px-4 py-2 rounded"
-            >
-              Link Google Drive
-            </button>
-
+          <div className="bg-ternary rounded-sm pt-3 mt-3">
             <table className="w-full">
               <thead>
                 <tr>
-                  <th>Serial</th>
-                  <th>Name</th>
+                  <th></th>
+                  <th className="text-start">Name</th>
+                  <th>Edit</th>
                   <th>Download</th>
                   <th>Delete</th>
                 </tr>
               </thead>
               <tbody>
                 {files.map((file, i) => (
-                  <tr
-                    key={file.id}
-                    className="text-center h-[48px] border-t-2 hover:bg-bg"
-                  >
-                    <td>{i + 1}.</td>
+                  <tr key={file.id} className="h-[48px] border-t-2 hover:bg-bg">
+                    <td className="pl-3">{getFileIcon(file.mimeType)}</td>
                     <td
                       className="cursor-pointer"
                       onClick={() => openFile(file)}
                     >
-                      {getFileIcon(file.mimeType)} {file.name}
+                      {file.name}
+                    </td>
+                    <td>
+                      <img
+                        className="m-auto cursor-pointer"
+                        src="img/edit.svg"
+                        alt="edit"
+                      />
                     </td>
                     <td>
                       <img

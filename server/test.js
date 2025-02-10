@@ -3,8 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const { google } = require("googleapis");
-const { Pool } = require("pg");
 require("dotenv").config();
+const { pool } = require("./config/db.js");
+const { registerUser, loginUser } = require("./models/auth.model.js");
+const protectRoute = require("./middlewares/authMiddleware.js")
+const userRoutes = require("./routes/userRoutes.js");
 
 const app = express();
 const PORT = 8081;
@@ -19,48 +22,9 @@ app.use(
   })
 );
 
-// **🔹 PostgreSQL Connection**
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-
-// **🔹 Define a route to register a new user
-app.post("/register", async (req, res) => {
-  const { name, username, password } = req.body;
-  try {
-    const result = await client.query(
-      "INSERT INTO user_info (name, username, password) VALUES ($1, $2, $3) RETURNING *",
-      [name, username, password]
-    );
-    res.send(result.rows[0]);
-  } catch (error) {
-    console.error("Error executing query", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// **🔹 Define a route to login a user
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    const result = await client.query(
-      "SELECT * FROM user_info WHERE username = $1 AND password = $2",
-      [username, password]
-    );
-    if (result.rows.length > 0) {
-      res.send(result.rows[0]);
-    } else {
-      res.status(401).json({ error: "Invalid credentials" });
-    }
-  } catch (error) {
-    console.error("Error executing query", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+app.post("/api/register", registerUser) // **🔹 Define a route to register a new user
+app.post("/api/login", loginUser) // **🔹 Define a route to login a user
+app.use("/api", userRoutes)
 
 // **🔹 Load credentials.json**
 let credentials;
@@ -104,7 +68,10 @@ const loadTokens = async () => {
 
 // **🔹 Refresh Token if Expired**
 async function refreshTokenIfNeeded(auth) {
-  if (!auth.credentials.expiry_date || auth.credentials.expiry_date <= Date.now()) {
+  if (
+    !auth.credentials.expiry_date ||
+    auth.credentials.expiry_date <= Date.now()
+  ) {
     const { credentials } = await auth.refreshAccessToken();
     auth.setCredentials(credentials);
     await saveTokens(credentials);
@@ -127,10 +94,75 @@ app.get("/oauth2callback", async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     await saveTokens(tokens);
-    res.redirect("http://localhost:5173/all");
+    res.redirect("http://localhost:5173/dashboard");
   } catch (error) {
     console.error("❌ OAuth Error:", error.message);
     res.status(500).send("Authentication failed.");
+  }
+});
+
+// **🔹 Count buckets
+app.get("/buckets", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT COUNT(*) FROM google_accounts");
+    const count = result.rows[0].count;
+    res.json({ count }); // Send response with count
+  } catch (error) {
+    console.error("❌ Error counting buckets:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// **🔹 Total available space endpoint**
+app.get("/space", async (req, res) => {
+  try {
+    // Retrieve the stored tokens (linked accounts)
+    const storedTokens = await loadTokens();
+
+    // Check if no accounts are linked; if none, return an error
+    if (!storedTokens.length) {
+      return res.status(401).send("❌ No accounts linked. Please authorize.");
+    }
+
+    // Initialize a variable to store the total used space (in bytes)
+    let totalUsed = 0;
+
+    // Loop through each stored token (account) and fetch space details
+    for (const token of storedTokens) {
+      // Set credentials for the current token
+      oauth2Client.setCredentials(token);
+
+      // Refresh the token if expired (ensures valid credentials)
+      await refreshTokenIfNeeded(oauth2Client);
+
+      // Initialize Google Drive API client
+      const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+      // Fetch the storage quota data from Google Drive using the `about.get` method
+      const response = await drive.about.get({
+        fields: "storageQuota", // Request only the storage quota fields
+      });
+
+      // Destructure the `storageQuota` data from the response
+      const { storageQuota } = response.data;
+      if (!storageQuota) {
+        console.error("❌ No storageQuota in response.");
+        continue; // Skip this account if no storageQuota data
+      }
+
+      // Add the used space for this account to the total used space
+      totalUsed = totalUsed + parseInt(storageQuota.usage);
+    }
+
+    // Total used space in GB
+    const usedInGB = (totalUsed / 1024 ** 3).toFixed(2);
+
+    // Return the total used space in GB as the response
+    res.json({ used: usedInGB });
+  } catch (error) {
+    // Handle and log any errors that may occur
+    console.error("❌ Error:", error.message);
+    res.status(500).send("❌ Error fetching space data.");
   }
 });
 

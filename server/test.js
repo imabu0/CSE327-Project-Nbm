@@ -8,6 +8,7 @@ const { pool } = require("./config/db.js");
 const { registerUser, loginUser } = require("./models/auth.model.js");
 const protectRoute = require("./middlewares/authMiddleware.js")
 const userRoutes = require("./routes/userRoutes.js");
+const dropboxRoutes = require("./routes/dropboxRoutes.js");
 
 const app = express();
 const PORT = 8081;
@@ -25,6 +26,7 @@ app.use(
 app.post("/api/register", registerUser) // **🔹 Define a route to register a new user
 app.post("/api/login", loginUser) // **🔹 Define a route to login a user
 app.use("/api", userRoutes)
+app.use("/dropbox", dropboxRoutes)
 
 // **🔹 Load credentials.json**
 let credentials;

@@ -106,14 +106,23 @@ export const Dashboard = () => {
             </div>
             <div className="bg-ternary rounded-sm p-3 mt-3">
               {/* Link Buckets Button */}
-              <div className="flex flex-col items-center justify-center">
+              <div className="flex gap-3 items-center justify-center">
                 <button
                   onClick={() =>
                     (window.location.href = "http://localhost:8081/authorize")
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >
-                  🔗 Link Bucket
+                  🔗 Link Google
+                </button>
+                <button
+                  onClick={() =>
+                    (window.location.href =
+                      "http://localhost:8081/dropbox/authorize")
+                  }
+                  className="bg-primary text-white px-4 py-2 rounded my-40"
+                >
+                  🔗 Link Dropbox
                 </button>
               </div>
             </div>

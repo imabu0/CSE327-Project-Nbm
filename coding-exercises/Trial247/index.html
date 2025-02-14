@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Google Drive File Browser</title>
+    <title>One Drive File Browser</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -130,8 +130,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>Google Drive File Browser</h1>
-        <button id="linkAccount">Link Google Drive Account</button>
+        <h1>One Drive File Browser</h1>
+        <button id="linkAccount">Link One Drive Account</button>
         
         <!-- Notification area -->
         <div id="notification" class="notification"></div>
@@ -158,7 +158,7 @@
         const goBackButton = document.getElementById("goBack");
 
         document.getElementById("linkAccount").addEventListener("click", function () {
-            window.location.href = "/authorize";
+            window.location.href = "/login";
         });
 
         document.getElementById("uploadFile").addEventListener("click", function () {
@@ -218,83 +218,49 @@
             xhr.send(formData);
         });
 
-        async function loadFiles(folderId = "root") {
-            try {
-                const response = await fetch(`/drive?folderId=${folderId}`);
-                const files = await response.json();
+        async function loadFiles() {
+    try {
+        const response = await fetch(`/files`);
+        const data = await response.json();
+        
+        fileList.innerHTML = ""; // Clear previous list
 
-                fileList.innerHTML = ""; // Clear previous list
+        data.value.forEach((file) => {
+            const li = document.createElement("li");
+            li.textContent = file.name;
 
-                // Show "Go Back" button if not in root folder
-                goBackButton.style.display = folderId !== "root" ? "block" : "none";
+            const downloadLink = document.createElement("a");
+            downloadLink.href = `/download/${file.id}`;
+            downloadLink.textContent = " (Download)";
+            downloadLink.classList.add("download-link");
 
-                files.forEach((file) => {
-                    const li = document.createElement("li");
-
-                    if (file.mimeType === "application/vnd.google-apps.folder") {
-                        // Display folder
-                        li.textContent = file.name;
-                        li.classList.add("folder");
-                        li.onclick = () => {
-                            currentFolderId = file.id;
-                            loadFiles(file.id);
-                        };
-                    } else {
-                        // Display file
-                        li.textContent = file.name;
-
-                        const downloadLink = document.createElement("a");
-                        downloadLink.href = `/download/${file.id}`;
-                        downloadLink.textContent = " (Download)";
-                        downloadLink.classList.add("download-link");
-
-                        const deleteButton = document.createElement("button");
-                    deleteButton.textContent = "Delete";
-                    deleteButton.classList.add("delete-button");
-                    deleteButton.onclick = async () => {
-                        const confirmDelete = confirm(`Are you sure you want to delete "${file.name}"?`);
-                        if (confirmDelete) {
-                            try {
-                                const deleteResponse = await fetch(`/delete/${file.id}`, {
-                                    method: "DELETE",
-                                });
-                                const deleteResult = await deleteResponse.text();
-                                alert(deleteResult);
-                                loadFiles(); // Reload files after deletion
-                            } catch (error) {
-                                console.error("Error deleting file:", error);
-                                alert("Failed to delete file.");
-                            }
-                        }
-                    };
-
-                        li.appendChild(downloadLink);
-                        li.appendChild(deleteButton);
+            const deleteButton = document.createElement("button");
+            deleteButton.textContent = "Delete";
+            deleteButton.classList.add("delete-button");
+            deleteButton.onclick = async () => {
+                if (confirm(`Are you sure you want to delete "${file.name}"?`)) {
+                    try {
+                        const deleteResponse = await fetch(`/delete/${file.id}`, { method: "DELETE" });
+                        const deleteResult = await deleteResponse.text();
+                        alert(deleteResult);
+                        loadFiles(); // Reload files after deletion
+                    } catch (error) {
+                        console.error("Error deleting file:", error);
+                        alert("Failed to delete file.");
                     }
-
-                    fileList.appendChild(li);
-                });
-            } catch (error) {
-                console.error("Error loading files:", error);
-                alert("Failed to load files.");
-            }
-        }
-
-        // Go back to the parent folder
-        goBackButton.addEventListener("click", async () => {
-            try {
-                const response = await fetch(`/drive/parent?folderId=${currentFolderId}`);
-                const parentFolderId = await response.text();
-
-                if (parentFolderId) {
-                    currentFolderId = parentFolderId;
-                    loadFiles(parentFolderId);
                 }
-            } catch (error) {
-                console.error("Error fetching parent folder:", error);
-                alert("Unable to go back.");
-            }
+            };
+
+            li.appendChild(downloadLink);
+            li.appendChild(deleteButton);
+            fileList.appendChild(li);
         });
+    } catch (error) {
+        console.error("Error loading files:", error);
+        alert("Failed to load files.");
+    }
+}
+
 
         // Load files on page load
         window.onload = () => loadFiles();

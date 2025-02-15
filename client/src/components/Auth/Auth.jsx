@@ -22,7 +22,7 @@ export const Auth = () => {
     try {
       // Send POST request to register the user
       const res = await axios.post(
-        "http://localhost:8081/api/register",
+        "http://localhost:8000/api/register",
         registerData
       );
       // Reset registration form data
@@ -45,7 +45,7 @@ export const Auth = () => {
     try {
       // Send POST request to log in the user
       const response = await axios.post(
-        "http://localhost:8081/api/login",
+        "http://localhost:8000/api/login",
         loginData
       );
 

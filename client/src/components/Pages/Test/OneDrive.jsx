@@ -12,22 +12,17 @@ import { useDropzone } from "react-dropzone"; // Import useDropzone from react-d
 import { Sidebar } from "../../Sidebar/Sidebar";
 import { Avatar } from "../../Profile/Avatar";
 
-const API_URL = "http://localhost:8000/dropbox"; // Update with your backend URL
-
-export const Test = () => {
+export const OneDrive = () => {
   const [files, setFiles] = useState([]); // State to store file list
   const [loading, setLoading] = useState(false);
 
-  // Fetch file list from Dropbox
   const fetchFiles = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/files`);
-      setFiles(response.data);
+      const response = await axios.get('http://localhost:8000/files', { withCredentials: true });
+      setFiles(response.data.value); // Adjust based on the structure of the response
     } catch (error) {
+      console.error("Error fetching files:", error);
       message.error("Failed to fetch files");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -41,43 +36,13 @@ export const Test = () => {
     formData.append("file", file);
 
     try {
-      await axios.post(`${API_URL}/upload`, formData, {
+      await axios.post('http://localhost:8000/upload', formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       message.success("File uploaded successfully");
       fetchFiles(); // Refresh file list
     } catch (error) {
       message.error("Upload failed");
-    }
-  };
-
-  // Handle file deletion
-  const handleDelete = async (path) => {
-    try {
-      await axios.delete(`${API_URL}/delete`, { params: { path } });
-      message.success("File deleted successfully");
-      fetchFiles();
-    } catch (error) {
-      message.error("Delete failed");
-    }
-  };
-
-  // Handle file download
-  const handleDownload = async (path) => {
-    try {
-      const response = await axios.get(`${API_URL}/download`, {
-        params: { path },
-        responseType: "blob",
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", path.split("/").pop());
-      document.body.appendChild(link);
-      link.click();
-    } catch (error) {
-      message.error("Download failed");
     }
   };
 

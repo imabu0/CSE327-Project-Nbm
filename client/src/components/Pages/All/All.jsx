@@ -20,7 +20,7 @@ export const All = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:8081/drive?folderId=${folderId}`,
+        `http://localhost:8000/drive?folderId=${folderId}`,
         { withCredentials: true }
       );
 
@@ -40,7 +40,7 @@ export const All = () => {
 
   const handleDelete = async (fileId) => {
     try {
-      await axios.delete(`http://localhost:8081/delete/${fileId}`, {
+      await axios.delete(`http://localhost:8000/delete/${fileId}`, {
         withCredentials: true,
       });
       fetchFiles();
@@ -51,8 +51,8 @@ export const All = () => {
 
   const handleDownload = (id, isFolder) => {
     const url = isFolder
-      ? `http://localhost:8081/download-folder/${id}`
-      : `http://localhost:8081/download/${id}`;
+      ? `http://localhost:8000/download-folder/${id}`
+      : `http://localhost:8000/download/${id}`;
 
     window.open(url, "_blank");
   };
@@ -72,7 +72,7 @@ export const All = () => {
     formData.append("folderId", folderId === "root" ? "" : folderId);
 
     try {
-      const response = await fetch("http://localhost:8081/upload", {
+      const response = await fetch("http://localhost:8000/upload", {
         method: "POST",
         body: formData,
         credentials: "include",

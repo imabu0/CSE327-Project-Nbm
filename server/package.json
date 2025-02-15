@@ -2,10 +2,10 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "testdemo2.js",
+  "main": "merge.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon testdemo2.js"
+    "start": "nodemon merge.js"
   },
   "keywords": [],
   "author": "",

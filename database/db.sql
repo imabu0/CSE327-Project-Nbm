@@ -22,3 +22,11 @@ CREATE TABLE dropbox_accounts (
   refresh_token VARCHAR(5000) UNIQUE NOT NULL, -- Column to store the refresh token, must be unique
 	expiry_date VARCHAR(5000)
 );
+
+-- store linked onedrive account info
+CREATE TABLE onedrive_accounts (
+    id SERIAL PRIMARY KEY,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT UNIQUE NOT NULL,
+    expiry_date VARCHAR(255)
+);

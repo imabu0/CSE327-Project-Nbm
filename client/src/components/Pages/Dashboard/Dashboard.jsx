@@ -18,15 +18,15 @@ export const Dashboard = () => {
   const fetchCounts = async () => {
     try {
       // Fetch bucket count
-      const bucketResponse = await axios.get("http://localhost:8081/buckets");
+      const bucketResponse = await axios.get("http://localhost:8000/buckets");
       setBucketCount(bucketResponse.data.count); // Store the fetched bucket count
 
       // Fetch available storage space (in GB)
-      const spaceResponse = await axios.get("http://localhost:8081/space");
+      const spaceResponse = await axios.get("http://localhost:8000/space");
       setSpace(spaceResponse.data.used); // Store the fetched available space
 
       // Fetch user count
-      const userResponse = await axios.get("http://localhost:8081/api/users");
+      const userResponse = await axios.get("http://localhost:8000/api/users");
       setUserCount(userResponse.data.count); // Store the fetched user count
 
       // Set loading to false after all data is fetched
@@ -109,7 +109,7 @@ export const Dashboard = () => {
               <div className="flex gap-3 items-center justify-center">
                 <button
                   onClick={() =>
-                    (window.location.href = "http://localhost:8081/authorize")
+                    (window.location.href = "http://localhost:8000/authorize")
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >
@@ -118,11 +118,20 @@ export const Dashboard = () => {
                 <button
                   onClick={() =>
                     (window.location.href =
-                      "http://localhost:8081/dropbox/authorize")
+                      "http://localhost:8000/dropbox/authorize")
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >
                   🔗 Link Dropbox
+                </button>
+                <button
+                  onClick={() =>
+                    (window.location.href =
+                      "http://localhost:8000/onedrive/authorize")
+                  }
+                  className="bg-primary text-white px-4 py-2 rounded my-40"
+                >
+                  🔗 Link OneDrive
                 </button>
               </div>
             </div>

@@ -29,7 +29,7 @@ export const Avatar = () => {
     const fetchUserName = async () => {
       try {
         // API call to get the user name
-        const response = await axios.get("http://localhost:8081/api/user", {
+        const response = await axios.get("http://localhost:8000/api/user", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

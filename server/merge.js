@@ -28,7 +28,7 @@ const CLIENT_ID = process.env.DROPBOX_CLIENT_ID;
 const CLIENT_SECRET = process.env.DROPBOX_CLIENT_SECRET;
 const REDIRECT_URI = process.env.DROPBOX_REDIRECT_URI; // Update with your redirect URI
 
-const authUrl = `${DROPBOX_OAUTH_URL}?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&token_access_type=offline}`;
+const authUrl = `${DROPBOX_OAUTH_URL}?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&token_access_type=offline`;
 
 // Google OAuth2 configuration
 const credentials = JSON.parse(fs.readFileSync("credentials.json")).web;

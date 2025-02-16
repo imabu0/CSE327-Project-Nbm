@@ -70,7 +70,7 @@ const loginUser  = async (req, res) => {
 
     // Generate JWT token including role
     const token = jwt.sign({ id, username, role }, SECRET_KEY, {
-      expiresIn: "1h", // Token expires in 1 hour
+      expiresIn: "12h", // Token expires in 12 hour
     });
 
     // Respond with success message and token

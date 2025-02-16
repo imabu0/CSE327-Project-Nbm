@@ -109,7 +109,7 @@ export const Dashboard = () => {
               <div className="flex gap-3 items-center justify-center">
                 <button
                   onClick={() =>
-                    (window.location.href = "http://localhost:8000/authorize")
+                    (window.location.href = "http://localhost:8000/google/authorize")
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >

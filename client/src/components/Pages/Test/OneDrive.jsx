@@ -8,7 +8,7 @@ import {
   DownloadOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
-import { useDropzone } from "react-dropzone"; // Import useDropzone from react-dropzone
+import { useDropzone } from "react-dropzone";
 import { Sidebar } from "../../Sidebar/Sidebar";
 import { Avatar } from "../../Profile/Avatar";
 
@@ -17,13 +17,28 @@ export const OneDrive = () => {
   const [loading, setLoading] = useState(false);
 
   const fetchFiles = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get('http://localhost:8000/files', { withCredentials: true });
-      setFiles(response.data.value); // Adjust based on the structure of the response
+      const response = await axios.get("http://localhost:8000/onedrive/files", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("onedrive_token")}`,
+        },
+        withCredentials: true,
+      });
+
+      if (response.data && response.data.value) {
+        setFiles(response.data.value);
+      } else {
+        setFiles([]);
+      }
     } catch (error) {
-      console.error("Error fetching files:", error);
-      message.error("Failed to fetch files");
+      console.error(
+        "❌ Error fetching files:",
+        error.response?.data || error.message
+      );
+      message.error("Failed to fetch files. Please re-authenticate.");
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -36,13 +51,53 @@ export const OneDrive = () => {
     formData.append("file", file);
 
     try {
-      await axios.post('http://localhost:8000/upload', formData, {
+      await axios.post("http://localhost:8000/onedrive/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
       });
       message.success("File uploaded successfully");
       fetchFiles(); // Refresh file list
     } catch (error) {
       message.error("Upload failed");
+    }
+  };
+
+  // Handle file download
+  const handleDownload = async (fileId) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:8000/onedrive/download/${fileId}`,
+        {
+          responseType: "blob",
+          withCredentials: true,
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileId);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      message.success("Download started");
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      message.error("Download failed");
+    }
+  };
+
+  // Handle file deletion
+  const handleDelete = async (fileId) => {
+    try {
+      await axios.delete(`http://localhost:8000/onedrive/delete/${fileId}`, {
+        withCredentials: true,
+      });
+      message.success("File deleted successfully");
+      fetchFiles(); // Refresh file list
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      message.error("Failed to delete file");
     }
   };
 
@@ -63,7 +118,7 @@ export const OneDrive = () => {
       <div className="w-full px-3">
         <div>
           <div className="mt-3 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">All</h1>
+            <h1 className="text-2xl font-semibold">OneDrive Files</h1>
             <Avatar />
           </div>
 
@@ -84,6 +139,7 @@ export const OneDrive = () => {
               </Button>
             </div>
           </div>
+
           <div className="bg-ternary rounded-sm p-3 mt-3">
             {/* File List */}
             <Spin spinning={loading} indicator={customIcon}>
@@ -96,14 +152,14 @@ export const OneDrive = () => {
                       <Button icon={<EditOutlined />}>Edit</Button>,
                       <Button
                         icon={<DownloadOutlined />}
-                        onClick={() => handleDownload(file.path_display)}
+                        onClick={() => handleDownload(file.id)}
                       >
                         Download
                       </Button>,
                       <Button
                         icon={<DeleteOutlined />}
                         danger
-                        onClick={() => handleDelete(file.path_display)}
+                        onClick={() => handleDelete(file.id)}
                       >
                         Delete
                       </Button>,

@@ -1,74 +1,58 @@
-const Dropbox = require("dropbox").Dropbox;
-const fetch = require("node-fetch"); // Required for Dropbox SDK
-const fs = require("fs");
-require("dotenv").config();
+const Bucket = require("./bucket.model.js");
+const axios = require("axios");
 
-const dbx = new Dropbox({
-  accessToken: process.env.DROPBOX_TOKEN,
-  fetch,
-});
-
-/**
- * ✅ Uploads a file to Dropbox
- * @param {Buffer} fileBuffer - The file data as a buffer
- * @param {string} dropboxPath - The path where the file should be stored in Dropbox
- */
-const uploadFile = async (fileBuffer, dropboxPath) => {
-  try {
-    const response = await dbx.filesUpload({
-      path: dropboxPath,
-      contents: fileBuffer, // Directly pass the buffer
-      mode: { ".tag": "overwrite" }, // Overwrite if file exists
-    });
-
-    return response.result;
-  } catch (error) {
-    console.error("❌ Dropbox Upload Error:", error);
-    throw error;
+class DropboxBucket extends Bucket {
+  constructor() {
+    super(
+      process.env.DROPBOX_CLIENT_ID,
+      process.env.DROPBOX_CLIENT_SECRET,
+      process.env.DROPBOX_REDIRECT_URI,
+      "dropbox_accounts"
+    );
   }
-};
 
-/**
- * ✅ Lists all files in Dropbox
- */
-const listFiles = async () => {
-  try {
-    const response = await dbx.filesListFolder({ path: "" });
-    return response.result.entries;
-  } catch (error) {
-    console.error("❌ Dropbox List Files Error:", error);
-    throw error;
+  getAuthUrl() {
+    return `https://www.dropbox.com/oauth2/authorize?client_id=${this.clientId}&response_type=code&redirect_uri=${this.redirectUri}&token_access_type=offline`;
   }
-};
 
-/**
- * ✅ Downloads a file from Dropbox
- * @param {string} dropboxPath - The file path in Dropbox
- */
-const downloadFile = async (path) => {
-  try {
-    const response = await dbx.filesDownload({ path });
+  async handleCallback(code) {
+    const response = await axios.post(
+      "https://api.dropbox.com/oauth2/token",
+      `code=${code}&grant_type=authorization_code&client_id=${this.clientId}&client_secret=${this.clientSecret}&redirect_uri=${this.redirectUri}`,
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
 
-    // The file content is in response.fileBinary
-    return response.result.fileBinary;
-  } catch (error) {
-    console.error("❌ Dropbox download error:", error);
-    throw new Error("Failed to download file");
+    await this.saveTokens(
+      response.data.access_token,
+      response.data.refresh_token,
+      null
+    );
   }
-};
 
-/**
- * ✅ Deletes a file from Dropbox
- * @param {string} dropboxPath - The file path in Dropbox
- */
-const deleteFile = async (dropboxPath) => {
-  try {
-    const response = await dbx.filesDeleteV2({ path: dropboxPath });
-    return response.result;
-  } catch (error) {
-    console.error("❌ Dropbox Delete Error:", error);
-    throw error;
+  async listFiles() {
+    const storedTokens = await this.loadTokens();
+    if (!storedTokens.length) return [];
+
+    let allFiles = [];
+    for (const token of storedTokens) {
+      try {
+        const response = await axios.post(
+          "https://api.dropboxapi.com/2/files/list_folder",
+          { path: "" },
+          {
+            headers: {
+              Authorization: `Bearer ${token.access_token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        allFiles.push(...response.data.entries);
+      } catch (error) {
+        console.error("❌ Dropbox Error:", error.message);
+      }
+    }
+    return allFiles;
   }
-};
+}
 
-module.exports = { uploadFile, listFiles, downloadFile, deleteFile };
+module.exports = DropboxBucket;

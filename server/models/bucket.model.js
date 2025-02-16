@@ -1,24 +1,62 @@
+const { pool } = require("../config/db.js"); // PostgreSQL connection
+
+// 🔹 Base Class: Bucket (Common Methods)
 class Bucket {
-  constructor(auth) {
-    if (new.target === Bucket) {
-      throw new Error("Cannot instantiate an abstract class.");
+  constructor(clientId, clientSecret, redirectUri, tableName) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+    this.tableName = tableName;
+  }
+
+  // Save tokens to PostgreSQL
+  async saveTokens(accessToken, refreshToken, expiryDate) {
+    try {
+      await pool.query(
+        `INSERT INTO ${this.tableName} (access_token, refresh_token, expiry_date) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (refresh_token) 
+         DO UPDATE SET access_token = EXCLUDED.access_token, expiry_date = EXCLUDED.expiry_date`,
+        [accessToken, refreshToken, expiryDate]
+      );
+      console.log(`✅ Tokens saved to ${this.tableName}`);
+    } catch (error) {
+      console.error(
+        `❌ Error saving tokens to ${this.tableName}:`,
+        error.message
+      );
     }
-    this.auth = auth;
   }
 
-  async uploadFile(file, parentFolderId) {
-    throw new Error("uploadFile method must be implemented.");
+  // Load tokens from PostgreSQL
+  async loadTokens() {
+    try {
+      const res = await pool.query(`SELECT * FROM ${this.tableName}`);
+      return res.rows;
+    } catch (error) {
+      console.error(
+        `❌ Error loading tokens from ${this.tableName}:`,
+        error.message
+      );
+      return [];
+    }
   }
 
-  async deleteFile(fileId) {
-    throw new Error("deleteFile method must be implemented.");
+  listFiles() {
+    throw new Error("listFiles() must be implemented in a subclass");
   }
 
-  async downloadFile(fileId, res) {
-    throw new Error("downloadFile method must be implemented.");
+  uploadFile(file) {
+    throw new Error("uploadFile() must be implemented in a subclass");
   }
 
-  async getAvailableStorage() {
-    throw new Error("getAvailableStorage method must be implemented.");
+  downloadFile(fileId) {
+    throw new Error("downloadFile() must be implemented in a subclass");
+  }
+
+  deleteFile(fileId) {
+    throw new Error("deleteFile() must be implemented in a subclass");
   }
 }
+
+module.exports = Bucket;

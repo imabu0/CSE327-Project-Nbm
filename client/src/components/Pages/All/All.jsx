@@ -20,7 +20,7 @@ export const All = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:8000/drive?folderId=${folderId}`,
+        `http://localhost:8000/google/drive?folderId=${folderId}`,
         { withCredentials: true }
       );
 

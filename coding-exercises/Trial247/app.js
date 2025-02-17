@@ -1,114 +1,112 @@
 require('dotenv').config();
-const path = require('path');
 const express = require('express');
-const multer = require('multer');
 const session = require('express-session');
 const axios = require('axios');
+const multer = require('multer');
+const path = require('path');
+const querystring = require('querystring');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const PORT = 8000;
 
-// MSAL configuration
-const msalConfig = {
-  auth: {
-    clientId: process.env.CLIENT_ID,
-    authority: 'https://login.microsoftonline.com/consumers', 
-    clientSecret: process.env.CLIENT_SECRET,
-    redirectUri: 'http://localhost:8000/auth/callback'
-  }
-};
-
-const { ConfidentialClientApplication } = require('@azure/msal-node');
-const pca = new ConfidentialClientApplication(msalConfig);
-
-// Session setup
 app.use(session({
   secret: 'your_secret_key',
   resave: false,
   saveUninitialized: false,
 }));
 
-// Middleware to check authentication
-function isAuthenticated(req, res, next) {
-  if (req.session.accessToken) {
-    return next();
-  }
-  res.redirect('/login');
-}
+const AUTH_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
+const TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+const GRAPH_URL = "https://graph.microsoft.com/v1.0/me/drive";
 
-app.get('/login', async (req, res) => {
-  try {
-    const authUrl = await pca.getAuthCodeUrl({
-      scopes: ['User.Read', 'Files.ReadWrite'],
-      redirectUri: msalConfig.auth.redirectUri,
-      prompt: 'select_account'
-    });
-    res.redirect(authUrl);
+app.get('/login', (req, res) => {
+  const redirectUri = `${process.env.REDIRECT_URI}/onedrive/oauth2callback`;
+  const params = querystring.stringify({
+    client_id: process.env.CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope: 'User.Read Files.ReadWrite offline_access',
+    response_mode: 'query'
+  });
 
-  } catch (error) {
-    console.error("Auth URL Error:", error);
-    res.status(500).send(error.message);
-  }
+  const authUrl = `${AUTH_URL}?${params}`;
+  console.log("Generated OAuth URL:", authUrl); // Debugging
+  res.redirect(authUrl);
 });
 
 
-app.get('/auth/callback', async (req, res) => {
+app.get('/onedrive/oauth2callback', async (req, res) => {
+  console.log("OAuth callback query params:", req.query); // Debugging
+  
   if (!req.query.code) {
-    return res.status(400).send('Authorization code missing.');
+    console.error('Authorization code is missing:', req.query);
+    return res.status(400).send('Authorization code missing. Please try logging in again.');
   }
 
   try {
-    const tokenResponse = await pca.acquireTokenByCode({
+    const tokenResponse = await axios.post(TOKEN_URL, querystring.stringify({
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET,
       code: req.query.code,
-      scopes: ['User.Read', 'Files.ReadWrite'],
-      redirectUri: msalConfig.auth.redirectUri,
-      clientSecret: process.env.CLIENT_SECRET
+      redirect_uri: `${process.env.REDIRECT_URI}/onedrive/oauth2callback`,
+      grant_type: 'authorization_code'
+    }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
 
-    req.session.accessToken = tokenResponse.accessToken;
-
+    req.session.accessToken = tokenResponse.data.access_token;
+    req.session.refreshToken = tokenResponse.data.refresh_token;
     res.redirect('/');
   } catch (error) {
-    console.error("Token Error:", error);
-    res.status(500).send(error.message);
+    console.error('Token exchange error:', error.response?.data || error.message);
+    res.status(500).send(error.response?.data || 'Failed to exchange authorization code. Please try again.');
   }
 });
 
 
+// Refresh Access Token
+async function refreshAccessToken(req) {
+  try {
+    if (!req.session.refreshToken) throw new Error('No refresh token available');
 
-// Logout
-app.get('/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.send('Logged out');
-  });
-});
+    const tokenResponse = await axios.post(TOKEN_URL, querystring.stringify({
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET,
+      refresh_token: req.session.refreshToken,
+      grant_type: 'refresh_token'
+    }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    req.session.accessToken = tokenResponse.data.access_token;
+    req.session.refreshToken = tokenResponse.data.refresh_token;
+  } catch (error) {
+    console.error('Error refreshing token:', error.response?.data || error.message);
+  }
+}
+
+// Middleware to check authentication
+async function isAuthenticated(req, res, next) {
+  if (!req.session.accessToken) {
+    return res.redirect('/login');
+  }
+  next();
+}
 
 // Upload file to OneDrive
 app.post('/upload', isAuthenticated, upload.single('file'), async (req, res) => {
   try {
+    await refreshAccessToken(req);
     const accessToken = req.session.accessToken;
     const fileBuffer = req.file.buffer;
     const fileName = req.file.originalname;
 
-    await axios.put(`https://graph.microsoft.com/v1.0/me/drive/root:/${fileName}:/content`, fileBuffer, {
+    await axios.put(`${GRAPH_URL}/root:/${fileName}:/content`, fileBuffer, {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': req.file.mimetype }
     });
 
     res.send('File uploaded to OneDrive');
-  } catch (error) {
-    res.status(500).send(error.response?.data || error.message);
-  }
-});
-
-// List files
-app.get('/files', isAuthenticated, async (req, res) => {
-  try {
-    const accessToken = req.session.accessToken;
-    const response = await axios.get('https://graph.microsoft.com/v1.0/me/drive/root/children', {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
-    res.json(response.data);
   } catch (error) {
     res.status(500).send(error.response?.data || error.message);
   }
@@ -146,8 +144,6 @@ app.get('/download/:fileId', isAuthenticated, async (req, res) => {
   }
 });
 
-
-
 // Delete file
 app.delete('/delete/:fileId', isAuthenticated, async (req, res) => {
   try {
@@ -165,13 +161,34 @@ app.delete('/delete/:fileId', isAuthenticated, async (req, res) => {
   }
 });
 
+// List files
+app.get('/files', isAuthenticated, async (req, res) => {
+  try {
+    await refreshAccessToken(req);
+    const accessToken = req.session.accessToken;
 
-// Serve the homepage
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+    const response = await axios.get(`${GRAPH_URL}/root/children`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).send(error.response?.data || error.message);
+  }
 });
 
-// Start the server
+// Logout
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.send('Logged out');
+  });
+});
+
+// Serve Homepage
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Start Server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

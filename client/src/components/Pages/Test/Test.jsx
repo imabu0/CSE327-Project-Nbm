@@ -15,24 +15,50 @@ import { Avatar } from "../../Profile/Avatar";
 const API_URL = "http://localhost:8000/dropbox"; // Update with your backend URL
 
 export const Test = () => {
-  const [files, setFiles] = useState([]); // State to store file list
+  const [dropboxFiles, setDropboxFiles] = useState([]); // State to store Dropbox file list
+  const [googleFiles, setGoogleFiles] = useState([]); // State to store Google Drive file list
   const [loading, setLoading] = useState(false);
 
   // Fetch file list from Dropbox
-  const fetchFiles = async () => {
+  const fetchDropboxFiles = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/files`);
-      setFiles(response.data);
+      setDropboxFiles(response.data);
     } catch (error) {
-      message.error("Failed to fetch files");
+      message.error("Failed to fetch Dropbox files");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch file list from Google Drive
+  const fetchGoogleFiles = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:8000/google/drive`, // Adjust the endpoint as needed
+        { withCredentials: true }
+      );
+
+      // Ensure correct folder detection
+      const updatedFiles = response.data.map((file) => ({
+        ...file,
+        isFolder: file.mimeType === "application/vnd.google-apps.folder",
+      }));
+
+      setGoogleFiles(updatedFiles);
+    } catch (error) {
+      console.error("Error fetching Google Drive files:", error);
+      message.error("Failed to fetch Google Drive files");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFiles();
+    fetchGoogleFiles();
+    fetchDropboxFiles();
   }, []);
 
   // Handle file upload
@@ -45,7 +71,7 @@ export const Test = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       message.success("File uploaded successfully");
-      fetchFiles(); // Refresh file list
+      fetchDropboxFiles(); // Refresh Dropbox file list
     } catch (error) {
       message.error("Upload failed");
     }
@@ -56,7 +82,7 @@ export const Test = () => {
     try {
       await axios.delete(`${API_URL}/delete`, { params: { path } });
       message.success("File deleted successfully");
-      fetchFiles();
+      fetchDropboxFiles(); // Refresh Dropbox file list
     } catch (error) {
       message.error("Delete failed");
     }
@@ -92,13 +118,29 @@ export const Test = () => {
     <LoadingOutlined style={{ fontSize: 40, color: "#ED7631" }} spin />
   );
 
+  // Combine both file lists for rendering
+  const combinedFiles = [...googleFiles, ...dropboxFiles];
+
+  // Function to get the appropriate file icon based on MIME type
+  const getFileIcon = (mimeType) => {
+    if (mimeType.startsWith("image/")) return "🖼️";
+    if (mimeType === "application/pdf") return "📄";
+    if (mimeType.includes("powerpoint")) return "📊";
+    if (mimeType.startsWith("video/")) return "🎥";
+    if (mimeType.includes("document") || mimeType.includes("msword"))
+      return "📝";
+    if (mimeType.includes("zip")) return "📦";
+    if (mimeType === "application/vnd.google-apps.folder") return "📁";
+    return "📄"; // Default icon for unknown types
+  };
+
   return (
     <div className="flex">
       <Sidebar />
       <div className="w-full px-3">
         <div>
           <div className="mt-3 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">All</h1>
+            <h1 className="text-2xl font-semibold">All Files</h1>
             <Avatar />
           </div>
 
@@ -124,27 +166,37 @@ export const Test = () => {
             <Spin spinning={loading} indicator={customIcon}>
               <List
                 itemLayout="horizontal"
-                dataSource={files}
+                dataSource={combinedFiles} // Use combined file list
                 renderItem={(file) => (
                   <List.Item
                     actions={[
                       <Button icon={<EditOutlined />}>Edit</Button>,
                       <Button
                         icon={<DownloadOutlined />}
-                        onClick={() => handleDownload(file.path_display)}
+                        onClick={() =>
+                          handleDownload(file.path_display || file.id)
+                        } // Use appropriate path
                       >
                         Download
                       </Button>,
                       <Button
                         icon={<DeleteOutlined />}
                         danger
-                        onClick={() => handleDelete(file.path_display)}
+                        onClick={() =>
+                          handleDelete(file.path_display || file.id)
+                        } // Use appropriate path
                       >
                         Delete
                       </Button>,
                     ]}
                   >
-                    <List.Item.Meta title={file.name} />
+                    <List.Item.Meta
+                      title={
+                        <span>
+                          {getFileIcon(file.mimeType || "unknown")} {file.name}
+                        </span>
+                      }
+                    />
                   </List.Item>
                 )}
               />

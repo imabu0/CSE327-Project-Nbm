@@ -51,6 +51,76 @@ class GoogleBucket extends Bucket {
     }
   }
 
+  async getAvailableStorage() {
+    const storedTokens = await this.loadTokens();
+    let storageInfo = [];
+
+    for (const token of storedTokens) {
+      try {
+        this.oauth2Client.setCredentials({
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expiry_date: token.expiry_date,
+        });
+
+        const drive = google.drive({ version: "v3", auth: this.oauth2Client });
+        const response = await drive.about.get({
+          fields: "storageQuota",
+        });
+
+        const used = parseInt(response.data.storageQuota.usage);
+        const allocated = parseInt(response.data.storageQuota.limit);
+        const available = allocated - used;
+
+        storageInfo.push({ token, available });
+      } catch (error) {
+        console.error("❌ Error fetching Google Drive storage:", error.message);
+      }
+    }
+
+    return storageInfo.sort((a, b) => b.available - a.available); // Sort by available space
+  }
+
+  async uploadFile(file) {
+    if (!file || !file.path) {
+      console.error("❌ File path is missing.");
+      return null;
+    }
+
+    const storedTokens = await this.loadTokens();
+    if (!storedTokens.length) {
+      console.error("⚠️ No Google accounts available.");
+      return null;
+    }
+
+    for (const token of storedTokens) {
+      try {
+        this.oauth2Client.setCredentials({
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expiry_date: token.expiry_date,
+        });
+
+        const drive = google.drive({ version: "v3", auth: this.oauth2Client });
+        const response = await drive.files.create({
+          requestBody: {
+            name: file.originalname,
+            parents: ["root"], // Change if using a specific folder
+          },
+          media: {
+            mimeType: file.mimetype,
+            body: fs.createReadStream(file.path),
+          },
+        });
+
+        console.log(`✅ Uploaded ${file.originalname} to Google Drive.`);
+        return response.data.id; // Return file ID after upload
+      } catch (error) {
+        console.error("❌ Google Drive Upload Error:", error.message);
+      }
+    }
+  }
+
   async listFiles(folderId = "root") {
     try {
       const storedTokens = await this.loadTokens();

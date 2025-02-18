@@ -63,17 +63,32 @@ export const Test = () => {
 
   // Handle file upload
   const handleUpload = async (file) => {
+    if (!file) {
+      alert("Please select a file to upload.");
+      return;
+    }
+  
     const formData = new FormData();
     formData.append("file", file);
-
+  
     try {
-      await axios.post(`${API_URL}/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const response = await axios.post("http://localhost:8000/file/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          console.log(`Uploading: ${percentCompleted}%`);
+        },
       });
-      message.success("File uploaded successfully");
-      fetchDropboxFiles(); // Refresh Dropbox file list
+  
+      alert("✅ File uploaded successfully!");
+      console.log("Upload Response:", response.data);
     } catch (error) {
-      message.error("Upload failed");
+      console.error("❌ Upload error:", error.response?.data || error.message);
+      alert("❌ Error uploading file.");
     }
   };
 

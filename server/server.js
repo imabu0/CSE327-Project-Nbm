@@ -565,12 +565,12 @@ app.get("/accounts", (req, res) => {
   res.json(req.session.tokens || []);
 });
 
+// Serve static files (CSS, JS)
+app.use(express.static(path.join(__dirname, "public")));
+
 // Serve the homepage
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+app.listen(port, () => console.log(`Server running at http://localhost:${port}`));

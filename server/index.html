@@ -1,314 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Google Drive File Browser</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f4f4;
-        margin: 0;
-        padding: 20px;
-      }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropbox Integration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/4.24.3/antd.min.css">
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg text-center">
+        <h1 class="text-2xl font-bold mb-4">Dropbox Integration</h1>
+        <button id="authBtn" class="bg-blue-500 text-white px-4 py-2 rounded-md">Connect to Dropbox</button>
 
-      .container {
-        max-width: 600px;
-        margin: auto;
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      }
+        <h2 class="text-lg font-semibold mt-6">Upload File to Dropbox</h2>
+        <input type="file" id="fileInput" class="mt-4 p-2 border rounded-lg" />
+        <button id="uploadBtn" class="bg-green-500 text-white px-4 py-2 rounded-md mt-4">Upload</button>
 
-      h1 {
-        text-align: center;
-        color: #333;
-      }
-
-      button {
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        cursor: pointer;
-        border-radius: 5px;
-        margin: 10px 0;
-        width: 100%;
-      }
-
-      button:hover {
-        background-color: #45a049;
-      }
-
-      h2 {
-        color: #333;
-      }
-
-      ul {
-        list-style-type: none;
-        padding: 0;
-      }
-
-      li {
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .folder {
-        font-weight: bold;
-        cursor: pointer;
-      }
-
-      .download-link {
-        margin-left: 10px;
-        color: #007bff;
-        text-decoration: none;
-      }
-
-      .download-link:hover {
-        text-decoration: underline;
-      }
-
-      .delete-button {
-        background-color: #f44336;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        cursor: pointer;
-        border-radius: 5px;
-      }
-
-      .delete-button:hover {
-        background-color: #d32f2f;
-      }
-
-      .progress {
-        width: 100%;
-        background-color: #f3f3f3;
-        border-radius: 5px;
-        overflow: hidden;
-        margin-top: 10px;
-        display: none; /* Hidden by default */
-      }
-
-      .progress-bar {
-        height: 20px;
-        background-color: #4caf50;
-        width: 0%;
-        transition: width 0.2s;
-      }
-
-      /* Notification styles */
-      .notification {
-        background-color: #e7f3fe;
-        color: #31708f;
-        padding: 10px;
-        margin-bottom: 20px;
-        border: 1px solid #bce8f1;
-        border-radius: 5px;
-        display: none; /* Hidden by default */
-      }
-
-      .back-button {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        cursor: pointer;
-        border-radius: 5px;
-        margin-bottom: 10px;
-      }
-
-      .back-button:hover {
-        background-color: #0056b3;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Google Drive File Browser</h1>
-      <button id="linkAccount">Link Google Drive Account</button>
-
-      <!-- Notification area -->
-      <div id="notification" class="notification"></div>
-
-      <div id="fileUploadSection">
-        <h2>Upload File</h2>
-        <input type="file" id="fileInput" webkitdirectory directory multiple />
-        <button id="uploadFile">Upload</button>
-        <div class="progress" id="uploadProgress">
-          <div class="progress-bar" id="progressBar"></div>
-        </div>
-      </div>
-
-      <div id="fileListSection">
-        <h2>Your Files</h2>
-        <button class="back-button" id="goBack" style="display: none">
-          Go Back
-        </button>
-        <ul id="fileList"></ul>
-      </div>
+        <h2 class="text-lg font-semibold mt-6">Dropbox Files</h2>
+        <ul id="fileList" class="mt-4 text-left"></ul>
     </div>
 
     <script>
-      let currentFolderId = "root";
-      const fileList = document.getElementById("fileList");
-      const goBackButton = document.getElementById("goBack");
-
-      document
-        .getElementById("linkAccount")
-        .addEventListener("click", function () {
-          window.location.href = "/authorize";
+        // Connect to Dropbox
+        document.getElementById("authBtn").addEventListener("click", async () => {
+            const response = await fetch("http://localhost:8000/auth/dropbox");
+            const data = await response.json();
+            window.location.href = data.url;
         });
 
-      document
-        .getElementById("uploadFile")
-        .addEventListener("click", function () {
-          const fileInput = document.getElementById("fileInput");
-          const file = fileInput.files[0];
-          if (!file) {
-            alert("Please select a file to upload.");
-            return;
-          }
+        // Fetch files from Dropbox
+        async function fetchFiles() {
+            const response = await fetch("http://localhost:8000/dropbox/files");
+            const files = await response.json();
+            const fileList = document.getElementById("fileList");
+            fileList.innerHTML = files.map(f => `
+                <li class="p-2 border-b flex justify-between items-center">
+                    <span>${f.name}</span>
+                    <div>
+                        <button class="text-blue-500 mr-2" onclick="downloadFile('${f.id}', '${f.name}')">Download</button>
+                        <button class="text-red-500" onclick="deleteFile('${f.id}', '${f.name}')">Delete</button>
+                    </div>
+                </li>
+            `).join("");
+        }
 
-          const formData = new FormData();
-          formData.append("file", file);
+        fetchFiles();
 
-          const xhr = new XMLHttpRequest();
-          const progressBar = document.getElementById("progressBar");
-          const uploadProgress = document.getElementById("uploadProgress");
-          const notification = document.getElementById("notification");
+        // Handle file upload to Dropbox
+        document.getElementById("uploadBtn").addEventListener("click", async () => {
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
 
-          // Show the progress bar
-          uploadProgress.style.display = "block";
-          notification.style.display = "none"; // Hide previous notifications
-
-          xhr.open("POST", "/upload", true);
-
-          // Update progress bar
-          xhr.upload.onprogress = function (event) {
-            if (event.lengthComputable) {
-              const percentComplete = (event.loaded / event.total) * 100;
-              progressBar.style.width = percentComplete + "%";
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
             }
-          };
 
-          xhr.onload = function () {
-            if (xhr.status === 200) {
-              alert(xhr.responseText);
-              fileInput.value = ""; // Clear the input
-              loadFiles(parentFolderId); // Reload files after upload
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch("http://localhost:8000/dropbox/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert("File uploaded successfully!");
+                fetchFiles();  // Refresh the file list after uploading
             } else {
-              alert("Failed to upload file.");
+                alert("Error uploading file: " + result.error);
             }
-            // Hide the progress bar
-            uploadProgress.style.display = "none";
-            progressBar.style.width = "0%"; // Reset progress bar
-          };
-
-          xhr.onerror = function () {
-            alert("Error uploading file.");
-            // Hide the progress bar
-            uploadProgress.style.display = "none";
-            progressBar.style.width = "0%"; // Reset progress bar
-          };
-
-          // Show notification about the upload process
-          notification.textContent =
-            "Uploading file... It will be stored in the first available account.";
-          notification.style.display = "block";
-
-          xhr.send(formData);
         });
 
-      async function loadFiles(folderId = "root") {
-        try {
-          const response = await fetch(`/drive?folderId=${folderId}`);
-          const files = await response.json();
+        // Handle file download by ID
+        async function downloadFile(fileId, fileName) {
+            const response = await fetch(`http://localhost:8000/dropbox/download?id=${fileId}`);
+            const fileBlob = await response.blob();
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(fileBlob);
+            link.download = fileName;
+            link.click();
+        }
 
-          fileList.innerHTML = ""; // Clear previous list
-
-          // Show "Go Back" button if not in root folder
-          goBackButton.style.display = folderId !== "root" ? "block" : "none";
-
-          files.forEach((file) => {
-            const li = document.createElement("li");
-
-            if (file.mimeType === "application/vnd.google-apps.folder") {
-              // Display folder
-              li.textContent = file.name;
-              li.classList.add("folder");
-              li.onclick = () => {
-                currentFolderId = file.id;
-                loadFiles(file.id);
-              };
+        // Handle file deletion by ID
+        async function deleteFile(fileId, fileName) {
+            const response = await fetch(`http://localhost:8000/dropbox/delete?id=${fileId}`, { method: "DELETE" });
+            const result = await response.json();
+            if (response.ok) {
+                alert(`File "${fileName}" deleted successfully!`);
+                fetchFiles();  // Refresh the file list after deletion
             } else {
-              // Display file
-              li.textContent = file.name;
-
-              const downloadLink = document.createElement("a");
-              downloadLink.href = `/download/${file.id}`;
-              downloadLink.textContent = " (Download)";
-              downloadLink.classList.add("download-link");
-
-              const deleteButton = document.createElement("button");
-              deleteButton.textContent = "Delete";
-              deleteButton.classList.add("delete-button");
-              deleteButton.onclick = async () => {
-                const confirmDelete = confirm(
-                  `Are you sure you want to delete "${file.name}"?`
-                );
-                if (confirmDelete) {
-                  try {
-                    const deleteResponse = await fetch(`/delete/${file.id}`, {
-                      method: "DELETE",
-                    });
-                    const deleteResult = await deleteResponse.text();
-                    alert(deleteResult);
-                    loadFiles(); // Reload files after deletion
-                  } catch (error) {
-                    console.error("Error deleting file:", error);
-                    alert("Failed to delete file.");
-                  }
-                }
-              };
-
-              li.appendChild(downloadLink);
-              li.appendChild(deleteButton);
+                alert("Error deleting file: " + result.error);
             }
-
-            fileList.appendChild(li);
-          });
-        } catch (error) {
-          console.error("Error loading files:", error);
-          alert("Failed to load files.");
         }
-      }
-
-      // Go back to the parent folder
-      goBackButton.addEventListener("click", async () => {
-        try {
-          const response = await fetch(
-            `/drive/parent?folderId=${currentFolderId}`
-          );
-          const parentFolderId = await response.text();
-
-          if (parentFolderId) {
-            currentFolderId = parentFolderId;
-            loadFiles(parentFolderId);
-          }
-        } catch (error) {
-          console.error("Error fetching parent folder:", error);
-          alert("Unable to go back.");
-        }
-      });
-
-      // Load files on page load
-      window.onload = () => loadFiles();
     </script>
-  </body>
+</body>
 </html>

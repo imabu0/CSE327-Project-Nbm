@@ -2,7 +2,7 @@ const { registerUser, loginUser } = require("./models/auth.model.js");
 const userRoutes = require("./routes/userRoutes.js");
 const googleRoutes = require("./routes/googleRoutes.js");
 const dropboxRoutes = require("./routes/dropboxRoutes.js");
-const onedriveRoutes = require("./routes/onedriveRoutes.js")
+const fileRoutes = require("./routes/fileRoutes.js")
 
 // **Express Routes**
 const express = require("express");
@@ -25,7 +25,7 @@ app.post("/api/login", loginUser); // **Route for Login**
 app.use("/api", userRoutes); // **User Info**
 app.use("/google", googleRoutes); // **Google Routes**
 app.use("/dropbox", dropboxRoutes); // **Dropbox Routes**
-app.use("/onedrive", onedriveRoutes); // **Onedrive Routes**
+app.use("/file", fileRoutes); // **File Routes**
 
 // **Start Server**
 const PORT = process.env.PORT;

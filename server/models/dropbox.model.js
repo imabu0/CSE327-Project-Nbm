@@ -1,5 +1,7 @@
 const Bucket = require("./bucket.model.js");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 class DropboxBucket extends Bucket {
   constructor() {
@@ -31,65 +33,81 @@ class DropboxBucket extends Bucket {
 
   async getAvailableStorage() {
     const storedTokens = await this.loadTokens();
-    if (!storedTokens.length) return 0;
+    if (!storedTokens.length) return []; // ✅ Always return an array
+
+    let availableStorage = [];
 
     for (const token of storedTokens) {
       try {
         const response = await axios.post(
           "https://api.dropboxapi.com/2/users/get_space_usage",
-          {},
-          { headers: { Authorization: `Bearer ${token.access_token}` } }
-        );
-
-        const { allocation, used } = response.data;
-        const available = allocation.allocated - used;
-        return available;
-      } catch (error) {
-        console.error("❌ Error fetching Dropbox storage:", error.message);
-        return 0;
-      }
-    }
-  }
-
-  async uploadFile(file) {
-    const storedTokens = await this.loadTokens();
-    if (!storedTokens.length) {
-      throw new Error("❌ No Dropbox accounts linked.");
-    }
-
-    for (const token of storedTokens) {
-      try {
-        // Read file from temp storage
-        const filePath = file.path;
-        const fileStream = fs.createReadStream(filePath);
-        const fileName = path.basename(filePath);
-
-        // 📢 Upload to Dropbox using "content-upload" API
-        const response = await axios.post(
-          "https://content.dropboxapi.com/2/files/upload",
-          fileStream,
+          null, // ✅ Send null (not {})
           {
             headers: {
               Authorization: `Bearer ${token.access_token}`,
-              "Dropbox-API-Arg": JSON.stringify({
-                path: `/${fileName}`,
-                mode: "add",
-                autorename: true,
-                mute: false,
-              }),
-              "Content-Type": "application/octet-stream",
+              "Content-Type": "application/json", // ✅ Correct Content-Type
             },
           }
         );
 
-        console.log(`✅ Uploaded ${fileName} to Dropbox`);
-        return response.data.id; // Return file ID
+        const { allocation, used } = response.data;
+        const available = allocation.allocated - used;
+
+        availableStorage.push({ available, token: token.access_token });
       } catch (error) {
-        console.error("❌ Dropbox Upload Error:", error.message);
+        console.error(
+          "❌ Error fetching Dropbox storage:",
+          error.response?.data || error.message
+        );
       }
     }
 
-    throw new Error("❌ Failed to upload file to Dropbox.");
+    return availableStorage; // ✅ Always return an array
+  }
+
+  async uploadFile(filePath, fileName, token) {
+    try {
+      if (!filePath || !fileName) {
+        throw new Error("❌ Invalid file path or name");
+      }
+
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`❌ File not found: ${filePath}`);
+      }
+
+      const fileStream = fs.createReadStream(filePath);
+
+      // Ensure the file stream is properly read before uploading
+      fileStream.on("error", (err) => {
+        console.error("❌ File stream error:", err.message);
+      });
+
+      const response = await axios.post(
+        "https://content.dropboxapi.com/2/files/upload",
+        fileStream,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Dropbox-API-Arg": JSON.stringify({
+              path: `/${fileName}`,
+              mode: "add",
+              autorename: true,
+              mute: false,
+            }),
+            "Content-Type": "application/octet-stream",
+          },
+        }
+      );
+
+      console.log(`✅ Uploaded ${fileName} to Dropbox`);
+      return response.data.id;
+    } catch (error) {
+      console.error(
+        "❌ Dropbox Upload Error:",
+        error.response?.data || error.message
+      );
+      throw new Error("❌ Failed to upload file to Dropbox.");
+    }
   }
 
   async listFiles() {

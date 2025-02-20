@@ -1,9 +1,9 @@
 const express = require("express");
 const multer = require("multer");
-const GoogleBucket = require("../models/google.model.js");
+const FileOp = require("../models/file.model.js");
 
 const router = express.Router();
-const googleDrive = new GoogleBucket();
+const fileOp = new FileOp();
 const upload = multer({ dest: "uploads/" }); // Temporary folder for uploaded files
 
 // Upload route
@@ -13,7 +13,12 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const fileId = await googleDrive.uploadFile(req.file);
+    // ✅ Correct call to upFile()
+    const fileId = await fileOp.upFile(
+      req.file.path,
+      req.file.originalname,
+      req.file.size
+    );
     res.json({ success: true, fileId });
   } catch (error) {
     console.error("❌ Upload Route Error:", error.message);

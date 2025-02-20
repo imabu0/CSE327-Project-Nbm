@@ -1,3 +1,4 @@
+const fs = require("fs");
 const GoogleBucket = require("./google.model.js");
 const DropboxBucket = require("./dropbox.model.js");
 
@@ -7,80 +8,97 @@ class FileOp {
     this.dropboxBucket = new DropboxBucket();
   }
 
-  // ✅ Get available storage for all accounts
   async getAvailableStorage() {
     const googleStorage = await this.googleBucket.getAvailableStorage();
     const dropboxStorage = await this.dropboxBucket.getAvailableStorage();
 
     return {
-      google: googleStorage,
-      dropbox: dropboxStorage,
+      google: Array.isArray(googleStorage) ? googleStorage : [],
+      dropbox: Array.isArray(dropboxStorage) ? dropboxStorage : [],
     };
   }
 
-  // ✅ Upload file dynamically based on storage availability
-  async uploadFile(filePath, fileName, fileSize) {
+  async upFile(filePath, fileName, fileSize) {
     try {
-      const storage = await this.getAvailableStorage();
-      
-      // 1️⃣ Try Google Drive first
-      for (const google of storage.google) {
-        if (google.available > fileSize) {
-          console.log(`✅ Uploading ${fileName} to Google Drive...`);
-          return await this.googleBucket.uploadFile(filePath, fileName, google.token);
+        const storage = await this.getAvailableStorage();
+
+        // Combine all available storage from Google Drive and Dropbox
+        const allBuckets = [
+            ...storage.google.map(bucket => ({ ...bucket, type: 'google' })),
+            ...storage.dropbox.map(bucket => ({ ...bucket, type: 'dropbox' }))
+        ];
+
+        // Sort buckets by available storage (descending order)
+        allBuckets.sort((a, b) => b.available - a.available);
+
+        let remainingFileSize = fileSize;
+        let uploadedParts = [];
+        let chunkIndex = 1;
+
+        while (remainingFileSize > 0) {
+            // Find the first bucket with enough space for the remaining file
+            const bucket = allBuckets.find(b => b.available > 0);
+
+            if (!bucket) {
+                throw new Error("Insufficient storage in all linked accounts.");
+            }
+
+            // Determine the chunk size based on the bucket's available storage
+            const chunkSize = Math.min(bucket.available, remainingFileSize);
+
+            // Create a chunk of the file
+            const chunkPath = `${filePath}.part${chunkIndex}`;
+            const chunkBuffer = Buffer.alloc(chunkSize);
+            const fileStream = fs.createReadStream(filePath, {
+                start: fileSize - remainingFileSize,
+                end: fileSize - remainingFileSize + chunkSize - 1
+            });
+
+            await new Promise((resolve, reject) => {
+                fileStream.on('data', (chunk) => {
+                    chunkBuffer.fill(chunk);
+                });
+                fileStream.on('end', resolve);
+                fileStream.on('error', reject);
+            });
+
+            fs.writeFileSync(chunkPath, chunkBuffer);
+
+            // Upload the chunk to the appropriate bucket
+            if (bucket.type === 'google') {
+                console.log(`📤 Uploading chunk ${chunkIndex} to Google Drive...`);
+                const partId = await this.googleBucket.uploadFile(
+                    chunkPath,
+                    `${fileName}.part${chunkIndex}`,
+                    bucket.token
+                );
+                uploadedParts.push(partId);
+            } else if (bucket.type === 'dropbox') {
+                console.log(`📤 Uploading chunk ${chunkIndex} to Dropbox...`);
+                const partId = await this.dropboxBucket.uploadFile(
+                    chunkPath,
+                    `${fileName}.part${chunkIndex}`,
+                    bucket.token
+                );
+                uploadedParts.push(partId);
+            }
+
+            // Update the remaining file size and bucket's available storage
+            remainingFileSize -= chunkSize;
+            bucket.available -= chunkSize;
+
+            // Clean up the chunk file
+            fs.unlinkSync(chunkPath);
+            chunkIndex++;
         }
-      }
 
-      console.log("⚠️ Google Drive is full. Trying Dropbox...");
-
-      // 2️⃣ If Google Drive is full, try Dropbox
-      for (const dropbox of storage.dropbox) {
-        if (dropbox.available > fileSize) {
-          console.log(`✅ Uploading ${fileName} to Dropbox...`);
-          return await this.dropboxBucket.uploadFile(filePath, fileName, dropbox.token);
-        }
-      }
-
-      console.log("⚠️ All accounts are full. Splitting file into chunks...");
-
-      // 3️⃣ If all accounts are full, split into chunks
-      const chunkSize = 50 * 1024 * 1024;
-      const fileStream = fs.createReadStream(filePath, { highWaterMark: chunkSize });
-      let uploadedParts = [];
-      let chunkIndex = 1;
-
-      for await (const chunk of fileStream) {
-        const chunkPath = `${filePath}.part${chunkIndex}`;
-        fs.writeFileSync(chunkPath, chunk);
-
-        // Find a Dropbox bucket with enough space for this chunk
-        let uploaded = false;
-        for (const dropbox of storage.dropbox) {
-          if (dropbox.available > chunk.length) {
-            console.log(`📤 Uploading chunk ${chunkIndex} to Dropbox...`);
-            const partId = await this.dropboxBucket.uploadFile(chunkPath, `${fileName}.part${chunkIndex}`, dropbox.token);
-            uploadedParts.push(partId);
-            uploaded = true;
-            break;
-          }
-        }
-
-        if (!uploaded) {
-          console.error("❌ No space left in any account for this chunk.");
-          throw new Error("Insufficient storage in all linked accounts.");
-        }
-
-        fs.unlinkSync(chunkPath);
-        chunkIndex++;
-      }
-
-      console.log("✅ All parts uploaded successfully.");
-      return { message: "File uploaded in parts", uploadedParts };
+        console.log("✅ All parts uploaded successfully.");
+        return { message: "File uploaded in parts", uploadedParts };
     } catch (error) {
-      console.error("❌ Upload error:", error.message);
-      throw new Error("Failed to upload file.");
+        console.error("❌ Upload error:", error.message);
+        throw new Error("Failed to upload file.");
     }
-  }
+}
 }
 
 module.exports = FileOp;

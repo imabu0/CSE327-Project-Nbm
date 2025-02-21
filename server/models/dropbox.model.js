@@ -135,21 +135,180 @@ class DropboxBucket extends Bucket {
     return allFiles;
   }
 
-  async downloadFile(fileId, destination) {
-    const response = await this.dbx.filesDownload({ path: fileId });
-    const fileStream = fs.createWriteStream(destination);
+  async uploadFile(filePath, fileName, token) {
+    try {
+      if (!filePath || !fileName) {
+        throw new Error("❌ Invalid file path or name");
+      }
 
-    return new Promise((resolve, reject) => {
-      fileStream.write(response.fileBinary, "binary", (err) => {
-        if (err) {
-          console.error("❌ Error writing file:", err);
-          reject(err);
-        } else {
-          console.log("✅ Download complete.");
-          resolve();
-        }
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`❌ File not found: ${filePath}`);
+      }
+
+      const fileStream = fs.createReadStream(filePath);
+
+      // Ensure the file stream is properly read before uploading
+      fileStream.on("error", (err) => {
+        console.error("❌ File stream error:", err.message);
       });
-    });
+
+      const response = await axios.post(
+        "https://content.dropboxapi.com/2/files/upload",
+        fileStream,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Dropbox-API-Arg": JSON.stringify({
+              path: `/${fileName}`, // Use a temporary path for upload
+              mode: "add",
+              autorename: true,
+              mute: false,
+            }),
+            "Content-Type": "application/octet-stream",
+          },
+        }
+      );
+
+      const fileId = response.data.id; // Get the file ID from the response
+      console.log(`✅ Uploaded ${fileName} to Dropbox. File ID: ${fileId}`);
+      return fileId; // Return the file ID for storage in the database
+    } catch (error) {
+      console.error(
+        "❌ Dropbox Upload Error:",
+        error.response?.data || error.message
+      );
+      throw new Error("❌ Failed to upload file to Dropbox.");
+    }
+  }
+
+  async downloadFile(fileId, destinationPath) {
+    const storedTokens = await this.loadTokens();
+
+    if (!storedTokens.length) {
+      throw new Error("No Dropbox tokens available.");
+    }
+
+    let lastError = null;
+
+    // Try each token until the file is found
+    for (const token of storedTokens) {
+      try {
+        console.log(`🔍 Attempting to download file with ID: ${fileId}`);
+        console.log(`🔍 Using token: ${token.access_token.slice(0, 10)}...`);
+
+        // Step 1: Get a temporary download link
+        const tempLinkResponse = await axios.post(
+          "https://api.dropboxapi.com/2/files/get_temporary_link",
+          { path: fileId }, // Use the file ID as the path
+          {
+            headers: {
+              Authorization: `Bearer ${token.access_token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const tempLink = tempLinkResponse.data.link;
+        console.log(`✅ Retrieved temporary download link: ${tempLink}`);
+
+        // Step 2: Download the file using the temporary link
+        const response = await axios.get(tempLink, { responseType: "stream" });
+
+        const writer = fs.createWriteStream(destinationPath);
+        response.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+          writer.on("finish", resolve);
+          writer.on("error", reject);
+        });
+
+        console.log(`✅ Downloaded file ${fileId} from Dropbox.`);
+        return; // Exit the loop if the file is successfully downloaded
+      } catch (error) {
+        lastError = error;
+        console.error(
+          "❌ Dropbox API Error:",
+          error.response?.data || error.message
+        );
+        console.warn(
+          `⚠️ File ${fileId} not found in this Dropbox account. Trying next account...`
+        );
+      }
+    }
+
+    // If no account has the file, throw the last error
+    throw new Error(
+      `❌ File ${fileId} not found in any Dropbox account. Last error: ${lastError?.message}`
+    );
+  }
+
+  async getFilePathFromFileId(fileId, token) {
+    try {
+      const response = await axios.post(
+        "https://api.dropboxapi.com/2/files/get_metadata",
+        {
+          path: fileId, // Use the file ID as the path
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const filePath = response.data.path_display; // Get the file path
+      console.log(`✅ Retrieved file path for file ID ${fileId}: ${filePath}`);
+      return filePath;
+    } catch (error) {
+      console.error(
+        "❌ Error retrieving file metadata:",
+        error.response?.data || error.message
+      );
+      throw new Error("Failed to retrieve file metadata.");
+    }
+  }
+
+  async deleteFile(fileId) {
+    const storedTokens = await this.loadTokens();
+
+    if (!storedTokens.length) {
+      throw new Error("No Dropbox tokens available.");
+    }
+
+    let lastError = null;
+
+    // Try each token until the file is found and deleted
+    for (const token of storedTokens) {
+      try {
+        console.log(`🔍 Attempting to delete file with ID: ${fileId}`);
+        console.log(`🔍 Using token: ${token.access_token.slice(0, 10)}...`);
+
+        await axios.post(
+          "https://api.dropboxapi.com/2/files/delete_v2",
+          { path: fileId },
+          {
+            headers: {
+              Authorization: `Bearer ${token.access_token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log(`✅ Deleted file ${fileId} from Dropbox.`);
+        return; // Exit the loop if the file is successfully deleted
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `⚠️ File ${fileId} not found in this Dropbox account. Trying next account...`
+        );
+      }
+    }
+
+    // If no account has the file, throw the last error
+    throw new Error(
+      `❌ File ${fileId} not found in any Dropbox account. Last error: ${lastError?.message}`
+    );
   }
 }
 

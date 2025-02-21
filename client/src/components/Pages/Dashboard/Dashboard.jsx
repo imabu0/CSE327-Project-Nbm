@@ -124,15 +124,6 @@ export const Dashboard = () => {
                 >
                   🔗 Link Dropbox
                 </button>
-                <button
-                  onClick={() =>
-                    (window.location.href =
-                      "http://localhost:8000/onedrive/authorize")
-                  }
-                  className="bg-primary text-white px-4 py-2 rounded my-40"
-                >
-                  🔗 Link OneDrive
-                </button>
               </div>
             </div>
           </div>

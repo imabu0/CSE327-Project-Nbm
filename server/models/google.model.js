@@ -20,6 +20,9 @@ class GoogleBucket extends Bucket {
       this.clientSecret,
       this.redirectUri
     );
+
+    // Initialize drive here
+    this.drive = google.drive({ version: "v3", auth: this.oauth2Client });
   }
 
   getAuthUrl() {
@@ -220,28 +223,121 @@ class GoogleBucket extends Bucket {
     }
   }
 
-  async downloadFile(fileId, destination) {
-    const dest = fs.createWriteStream(destination);
-    const response = await this.drive.files.get(
-      {
-        fileId: fileId,
-        alt: "media",
-      },
-      { responseType: "stream" }
-    );
+  async downloadFile(fileId, destinationPath) {
+    const storedTokens = await this.loadTokens();
 
-    return new Promise((resolve, reject) => {
-      response.data
-        .on("end", () => {
-          console.log("✅ Download complete.");
-          resolve();
-        })
-        .on("error", (err) => {
-          console.error("❌ Error downloading file:", err);
-          reject(err);
-        })
-        .pipe(dest);
-    });
+    if (!storedTokens.length) {
+      throw new Error("No Google tokens available.");
+    }
+
+    let lastError = null;
+
+    // Try each token until the file is found
+    for (const token of storedTokens) {
+      try {
+        this.oauth2Client.setCredentials({
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expiry_date: token.expiry_date,
+        });
+
+        // Check if the token is expired and refresh it if necessary
+        if (this.oauth2Client.isTokenExpiring()) {
+          const { credentials } = await this.oauth2Client.refreshAccessToken();
+          this.oauth2Client.setCredentials(credentials);
+          console.log("🔑 Refreshed access token.");
+        }
+
+        console.log(`🔍 Attempting to download file with ID: ${fileId}`);
+        console.log(`🔍 Using token: ${token.access_token.slice(0, 10)}...`);
+
+        const drive = google.drive({ version: "v3", auth: this.oauth2Client });
+
+        // Verify that the file exists in this account
+        await drive.files.get({ fileId, fields: "id" });
+        console.log(`✅ File ${fileId} exists in this Google Drive account.`);
+
+        // Download the file
+        const dest = fs.createWriteStream(destinationPath);
+        const response = await drive.files.get(
+          { fileId, alt: "media" },
+          { responseType: "stream" }
+        );
+
+        await new Promise((resolve, reject) => {
+          response.data
+            .on("end", () => {
+              console.log(`✅ Downloaded file ${fileId} from Google Drive.`);
+              resolve();
+            })
+            .on("error", (err) => {
+              console.error("❌ Google Drive download error:", err);
+              reject(err);
+            })
+            .pipe(dest);
+        });
+
+        return; // Exit the loop if the file is successfully downloaded
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `⚠️ File ${fileId} not found in this Google Drive account. Trying next account...`
+        );
+      }
+    }
+
+    // If no account has the file, throw a specific error
+    throw new Error("FILE_NOT_FOUND_IN_GOOGLE_DRIVE");
+  }
+
+  async deleteFile(fileId) {
+    const storedTokens = await this.loadTokens();
+
+    if (!storedTokens.length) {
+      throw new Error("No Google tokens available.");
+    }
+
+    let lastError = null;
+
+    // Try each token until the file is found and deleted
+    for (const token of storedTokens) {
+      try {
+        this.oauth2Client.setCredentials({
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          expiry_date: token.expiry_date,
+        });
+
+        // Check if the token is expired and refresh it if necessary
+        if (this.oauth2Client.isTokenExpiring()) {
+          const { credentials } = await this.oauth2Client.refreshAccessToken();
+          this.oauth2Client.setCredentials(credentials);
+          console.log("🔑 Refreshed access token.");
+        }
+
+        console.log(`🔍 Attempting to delete file with ID: ${fileId}`);
+        console.log(`🔍 Using token: ${token.access_token.slice(0, 10)}...`);
+
+        const drive = google.drive({ version: "v3", auth: this.oauth2Client });
+
+        // Verify that the file exists in this account
+        await drive.files.get({ fileId, fields: "id" });
+        console.log(`✅ File ${fileId} exists in this Google Drive account.`);
+
+        // Delete the file
+        await drive.files.delete({ fileId });
+        console.log(`✅ Deleted file ${fileId} from Google Drive.`);
+        return; // Exit the loop if the file is successfully deleted
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `⚠️ File ${fileId} not found in this Google Drive account. Trying next account...`
+        );
+      }
+    }
+
+    // If no account has the file, throw a specific error
+    throw new Error("FILE_NOT_FOUND_IN_GOOGLE_DRIVE");
   }
 }
 

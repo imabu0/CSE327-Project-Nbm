@@ -17,6 +17,8 @@ const API_URL = "http://localhost:8000/"; // Update with your backend URL
 export const OneDrive = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null); // Add error state
+  const [success, setSuccess] = useState(null); // Add success state
 
   // ✅ Fetch file list from API
   const fetchFiles = async () => {
@@ -68,27 +70,53 @@ export const OneDrive = () => {
 
   const handleDownload = async (fileId) => {
     try {
+      // Find the file details from the state
+      const file = files.find((f) => f.id === fileId);
+      if (!file) {
+        console.error("❌ File not found in state.");
+        return;
+      }
+  
       const response = await axios.get(
         `http://localhost:8000/file/download/${fileId}`,
-        {
-          responseType: "blob", // Ensure the response is a file
-        }
+        { responseType: "blob" }
       );
-
-      // Create a download link for the file
+  
+      // Create a download link for the file with the correct name and extension
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `file_${fileId}.restored`);
+      link.setAttribute("download", `${file.title}`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
-
+      document.body.removeChild(link);
+  
       console.log("✅ File downloaded successfully!");
     } catch (error) {
       console.error("❌ Error downloading file:", error.message);
     }
   };
+
+  const handleDelete = async (fileId) => {
+    setLoading(true);  // Use setLoading here
+    setError(null);    // Reset error state
+    setSuccess(null);  // Reset success state
+  
+    try {
+      // Use DELETE method instead of POST
+      const response = await axios.delete(`http://localhost:8000/file/delete/${fileId}`);
+      if (response.status === 200) {
+        setSuccess('✅ Chunks deleted successfully!');
+        fetchFiles();
+      }
+    } catch (err) {
+      setError('❌ Failed to delete chunks.');
+      console.error('Error deleting chunks:', err);
+    } finally {
+      setLoading(false);  // Reset loading state
+    }
+  };
+  
 
   // ✅ Use Dropzone for drag-and-drop file upload
   const { getRootProps, getInputProps } = useDropzone({
@@ -190,7 +218,7 @@ export const OneDrive = () => {
                         <Button
                           icon={<DeleteOutlined />}
                           danger
-                          onClick={() => handleDelete(file.id)}
+                          onClick={() => handleDelete(file.id)}  // Pass fileId here
                         >
                           Delete
                         </Button>,

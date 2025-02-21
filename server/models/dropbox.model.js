@@ -134,6 +134,23 @@ class DropboxBucket extends Bucket {
     }
     return allFiles;
   }
+
+  async downloadFile(fileId, destination) {
+    const response = await this.dbx.filesDownload({ path: fileId });
+    const fileStream = fs.createWriteStream(destination);
+
+    return new Promise((resolve, reject) => {
+      fileStream.write(response.fileBinary, "binary", (err) => {
+        if (err) {
+          console.error("❌ Error writing file:", err);
+          reject(err);
+        } else {
+          console.log("✅ Download complete.");
+          resolve();
+        }
+      });
+    });
+  }
 }
 
 module.exports = DropboxBucket;

@@ -23,10 +23,19 @@ CREATE TABLE dropbox_accounts (
 	expiry_date VARCHAR(5000)
 );
 
--- store linked onedrive account info
-CREATE TABLE onedrive_accounts (
-    id SERIAL PRIMARY KEY,
-    access_token TEXT NOT NULL,
-    refresh_token TEXT UNIQUE NOT NULL,
-    expiry_date VARCHAR(255)
+-- Table to store file metadata
+CREATE TABLE file_info (
+    id SERIAL PRIMARY KEY,          -- Unique identifier for the file
+    title VARCHAR(255) NOT NULL,    -- Name of the file (e.g., "my_document")
+    fileExtension VARCHAR(50),      -- File extension (e.g., "pdf", "jpg")
+    size BIGINT NOT NULL,           -- Size of the file in bytes
+    created_at DATE DEFAULT CURRENT_DATE -- Store only the date (year, month, day)
+);
+
+-- Table to store chunk IDs associated with each file
+CREATE TABLE chunk_id (
+    id SERIAL PRIMARY KEY,          -- Unique identifier for the chunk entry
+    file_id INT REFERENCES file_info(id) ON DELETE CASCADE, -- Foreign key to file_info
+    chunk_id VARCHAR(255) NOT NULL,  -- Chunk ID (e.g., from Google Drive or Dropbox)
+    type VARCHAR(50) NOT NULL       -- Type of storage (e.g., "google" or "dropbox")
 );

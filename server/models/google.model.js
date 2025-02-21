@@ -219,6 +219,30 @@ class GoogleBucket extends Bucket {
       return [];
     }
   }
+
+  async downloadFile(fileId, destination) {
+    const dest = fs.createWriteStream(destination);
+    const response = await this.drive.files.get(
+      {
+        fileId: fileId,
+        alt: "media",
+      },
+      { responseType: "stream" }
+    );
+
+    return new Promise((resolve, reject) => {
+      response.data
+        .on("end", () => {
+          console.log("✅ Download complete.");
+          resolve();
+        })
+        .on("error", (err) => {
+          console.error("❌ Error downloading file:", err);
+          reject(err);
+        })
+        .pipe(dest);
+    });
+  }
 }
 
 module.exports = GoogleBucket;

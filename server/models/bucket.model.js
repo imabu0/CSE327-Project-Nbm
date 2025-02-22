@@ -42,6 +42,16 @@ class Bucket {
     }
   }
 
+  async countBuckets() {
+    try {
+      const result = await pool.query(`SELECT COUNT(*) FROM ${this.tableName}`);
+      return result.rows[0].count;
+    } catch (error) {
+      console.error("❌ Error counting users in google_accounts:", error.message);
+      throw error; // Re-throw the error to be handled by the route
+    }
+  }
+
   listFiles() {
     throw new Error("listFiles() must be implemented in a subclass");
   }

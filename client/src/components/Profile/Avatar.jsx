@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"; // Import react hooks
 import axios from "axios"; // Import axios for API integration
 import AntdAvatar from "antd/es/avatar"; // Import the Avatar component from Ant Design
 import { useNavigate } from "react-router-dom"; // Import navigate from react router dom for navigation
+import { LogoutOutlined } from "@ant-design/icons"; // Import the logout icon
 
 export const Avatar = () => {
   // Get the token from the local storage
@@ -18,6 +19,9 @@ export const Avatar = () => {
 
   // State to store error messages if any issue occurs during API call
   const [error, setError] = useState(null);
+
+  // State for logging out
+  const [logout, setLogout] = useState(false);
 
   // useEffect to fetch user name when the component mounts
   useEffect(() => {
@@ -58,16 +62,41 @@ export const Avatar = () => {
       .toUpperCase(); // Convert to uppercase for consistency
   };
 
+  const trueLogout = () => {
+    setLogout(true);
+  };
+
+  const falseLogout = () => {
+    setLogout(false);
+  };
+
   return (
-    <div>
+    <div onMouseEnter={trueLogout} onMouseLeave={falseLogout}>
       {loading ? (
         <p>Loading...</p> // Show loading text while API call is in progress
       ) : error ? (
         <p className="text-red-500">{error}</p> // Show error message if fetching failed
       ) : (
-        <AntdAvatar size={50} className="bg-primary">
-          {getInitials(userName)} {/* Display initials inside avatar */}
-        </AntdAvatar>
+        <>
+          <AntdAvatar size={50} className="bg-primary cursor-pointer">
+            {getInitials(userName)} {/* Display initials inside avatar */}
+          </AntdAvatar>
+          {logout && (
+            <div className="absolute z-50 text-[14px] font-medium right-3 bg-[#FAFAFA] p-2 rounded-lg top-[60px] border-[.5px] border-[#c4c4c4]">
+              <div
+                className="cursor-pointer hover:bg-opacity-20 hover:bg-[#c4c4c4] rounded-[6px] p-2 flex items-center gap-2"
+                onClick={() => {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("role");
+                  navigate("/");
+                }}
+              >
+                <LogoutOutlined /> {/* Logout icon */}
+                <span>Logout</span> {/* Logout text */}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

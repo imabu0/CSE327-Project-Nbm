@@ -76,12 +76,12 @@ export const OneDrive = () => {
         console.error("❌ File not found in state.");
         return;
       }
-  
+
       const response = await axios.get(
         `http://localhost:8000/file/download/${fileId}`,
         { responseType: "blob" }
       );
-  
+
       // Create a download link for the file with the correct name and extension
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
@@ -90,7 +90,7 @@ export const OneDrive = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-  
+
       console.log("✅ File downloaded successfully!");
     } catch (error) {
       console.error("❌ Error downloading file:", error.message);
@@ -98,25 +98,26 @@ export const OneDrive = () => {
   };
 
   const handleDelete = async (fileId) => {
-    setLoading(true);  // Use setLoading here
-    setError(null);    // Reset error state
-    setSuccess(null);  // Reset success state
-  
+    setLoading(true); // Use setLoading here
+    setError(null); // Reset error state
+    setSuccess(null); // Reset success state
+
     try {
       // Use DELETE method instead of POST
-      const response = await axios.delete(`http://localhost:8000/file/delete/${fileId}`);
+      const response = await axios.delete(
+        `http://localhost:8000/file/delete/${fileId}`
+      );
       if (response.status === 200) {
-        setSuccess('✅ Chunks deleted successfully!');
+        setSuccess("✅ Chunks deleted successfully!");
         fetchFiles();
       }
     } catch (err) {
-      setError('❌ Failed to delete chunks.');
-      console.error('Error deleting chunks:', err);
+      setError("❌ Failed to delete chunks.");
+      console.error("Error deleting chunks:", err);
     } finally {
-      setLoading(false);  // Reset loading state
+      setLoading(false); // Reset loading state
     }
   };
-  
 
   // ✅ Use Dropzone for drag-and-drop file upload
   const { getRootProps, getInputProps } = useDropzone({
@@ -131,7 +132,9 @@ export const OneDrive = () => {
 
   return (
     <div className="flex">
-      <Sidebar />
+      <div>
+        <Sidebar />
+      </div>
       <div className="w-full px-3">
         <div>
           <div className="mt-3 flex items-center justify-between">
@@ -218,7 +221,7 @@ export const OneDrive = () => {
                         <Button
                           icon={<DeleteOutlined />}
                           danger
-                          onClick={() => handleDelete(file.id)}  // Pass fileId here
+                          onClick={() => handleDelete(file.id)} // Pass fileId here
                         >
                           Delete
                         </Button>,

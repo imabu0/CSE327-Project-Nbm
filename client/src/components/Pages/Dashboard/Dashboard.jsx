@@ -8,7 +8,8 @@ import { LoadingOutlined } from "@ant-design/icons"; // Import to customize the 
 
 export const Dashboard = () => {
   // State for holding various data
-  const [bucketCount, setBucketCount] = useState(null); // Bucket count from the backend
+  const [googleBucketCount, setGoogleBucketCount] = useState(null); // Bucket count from the backend
+  const [dropboxBucketCount, setDropboxBucketCount] = useState(null); // Bucket count from the backend
   const [space, setSpace] = useState(null); // Available space (in GB) from the backend
   const [userCount, setUserCount] = useState(null); // User count from the backend
   const [error, setError] = useState(null); // Error message if there's an issue fetching data
@@ -17,13 +18,40 @@ export const Dashboard = () => {
   // Function to fetch all necessary counts from the backend
   const fetchCounts = async () => {
     try {
-      // Fetch bucket count
-      const bucketResponse = await axios.get("http://localhost:8000/buckets");
-      setBucketCount(bucketResponse.data.count); // Store the fetched bucket count
+      // Fetch google bucket count
+      const googleBucket = await axios.get(
+        "http://localhost:8000/google/buckets"
+      );
+      setGoogleBucketCount(googleBucket.data.count); // Store the fetched google bucket count
 
-      // Fetch available storage space (in GB)
-      const spaceResponse = await axios.get("http://localhost:8000/space");
-      setSpace(spaceResponse.data.used); // Store the fetched available space
+      // Fetch google bucket count
+      const dropboxBucket = await axios.get(
+        "http://localhost:8000/dropbox/buckets"
+      );
+      setDropboxBucketCount(dropboxBucket.data.count); // Store the fetched dropbox bucket count
+
+      // Fetch available storage space
+      const spaceResponse = await axios.get("http://localhost:8000/file/space");
+
+      // Calculate total available space (in bytes)
+      const googleSpace = spaceResponse.data.google.reduce(
+        (total, bucket) => total + bucket.available,
+        0
+      );
+      const dropboxSpace = spaceResponse.data.dropbox.reduce(
+        (total, bucket) => total + bucket.available,
+        0
+      );
+      const totalAvailableSpace = googleSpace + dropboxSpace;
+
+      // Convert bytes to GB
+      const totalAvailableSpaceGB = (
+        totalAvailableSpace /
+        (1024 * 1024 * 1024)
+      ).toFixed(2);
+
+      // Store the fetched available space
+      setSpace(totalAvailableSpaceGB);
 
       // Fetch user count
       const userResponse = await axios.get("http://localhost:8000/api/users");
@@ -45,13 +73,15 @@ export const Dashboard = () => {
   }, []); // Empty dependency array means this runs only once when the component mounts
 
   const customIcon = (
-    <LoadingOutlined style={{ fontSize: 40, color: "#ED7631" }} spin /> // Customize the spin size and color
+    <LoadingOutlined style={{ fontSize: 40, color: "#4d6bfe" }} spin /> // The spin size and color
   );
 
   return (
     <div className="flex">
       {/* Sidebar */}
-      <Sidebar />
+      <div>
+        <Sidebar />
+      </div>
 
       <div className="w-full px-3">
         <div className="mt-3 flex items-center justify-between">
@@ -68,32 +98,36 @@ export const Dashboard = () => {
           <div>
             {/* Flexbox layout for displaying the cards */}
             <div className="flex items-center justify-between gap-3 mt-3">
-              {/* Bucket Count Card */}
+              {/* Google Bucket Count Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
-                  {bucketCount} {/* Display bucket count */}
+                  {googleBucketCount} {/* Display bucket count */}
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
-                  Buckets {/* Label for bucket count */}
+                  Google {/* Label for bucket count */}
+                </p>
+              </div>
+
+              {/* Dropbox Bucket Count Card */}
+              <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
+                <h3 className="text-2xl font-medium text-center text-gray-700">
+                  {dropboxBucketCount} {/* Display bucket count */}
+                </h3>
+                <p className="text-xl font-medium text-center text-gray-800">
+                  Dropbox {/* Label for bucket count */}
                 </p>
               </div>
 
               {/* Storage Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
-                  <Progress
-                    type="circle"
-                    strokeColor="#ED7631"
-                    percent={((space / (bucketCount * 15)) * 100).toFixed(2)}
-                    width={80}
-                  />{" "}
                   {/* Display available space */}
+                  {googleBucketCount * 15 + dropboxBucketCount * 2}
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
-                  Storage {/* Label for storage */}
+                  Gigabyte {/* Label for storage */}
                 </p>
               </div>
-
               {/* User Count Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
@@ -104,12 +138,22 @@ export const Dashboard = () => {
                 </p>
               </div>
             </div>
+            <Progress
+              percent={(
+                100 -
+                (space / (googleBucketCount * 15 + dropboxBucketCount * 2)) *
+                  100
+              ).toFixed(2)}
+              strokeColor="#4d6bfe"
+              showInfo
+            />
             <div className="bg-ternary rounded-sm p-3 mt-3">
               {/* Link Buckets Button */}
               <div className="flex gap-3 items-center justify-center">
                 <button
                   onClick={() =>
-                    (window.location.href = "http://localhost:8000/google/authorize")
+                    (window.location.href =
+                      "http://localhost:8000/google/authorize")
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >

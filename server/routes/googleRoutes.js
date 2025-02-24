@@ -10,7 +10,7 @@ router.get("/oauth2callback", async (req, res) => {
     await google.handleCallback(req.query.code);
     res.redirect("http://localhost:5173/dashboard");
   } catch (error) {
-    console.error("❌ Google OAuth Error:", error.message);
+    console.error("Google OAuth Error:", error.message);
     res.status(500).send("Authentication failed.");
   }
 });
@@ -30,7 +30,7 @@ router.get("/buckets", async (req, res) => {
     res.json({ count });
   } catch (error) {
     // Log the error message to the console for debugging
-    console.error("❌ Error counting buckets:", error.message);
+    console.error("Error counting buckets:", error.message);
 
     // Send a 500 Internal Server Error response if an error occurs
     res.status(500).json({ error: "Internal Server Error" });

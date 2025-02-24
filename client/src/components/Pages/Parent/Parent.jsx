@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { Button, List, Input, Modal, message, Spin } from "antd";
+import axios from "axios"; // Import axios for making HTTP requests
+import { Button, List, Input, Modal, message, Spin } from "antd"; // Import Ant Design components
 import {
   UploadOutlined,
   EditOutlined,
@@ -17,10 +17,10 @@ import {
   FileOutlined,
   FolderOutlined,
   VideoCameraOutlined,
-} from "@ant-design/icons";
-import { useDropzone } from "react-dropzone";
-import { Sidebar } from "../../Sidebar/Sidebar";
-import { Avatar } from "../../Profile/Avatar";
+} from "@ant-design/icons"; // Import Ant Design icons
+import { useDropzone } from "react-dropzone"; // Import react-dropzone for drag-and-drop file upload
+import { Sidebar } from "../../Sidebar/Sidebar"; // Import Sidebar component
+import { Avatar } from "../../Profile/Avatar"; // Import Avatar component
 
 const API_URL = "http://localhost:8000/"; // Update with your backend URL
 
@@ -28,16 +28,19 @@ function Parent(props) {
   const { type = "all" } = props; // Default to "all" if no type is provided
   const [files, setFiles] = useState([]); // All files fetched from the backend
   const [filteredFiles, setFilteredFiles] = useState([]); // Files filtered by search or type
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state for API calls
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // Search query state
+  const [isModalVisible, setIsModalVisible] = useState(false); // Modal visibility state
+  const [editingFile, setEditingFile] = useState(null); // File being edited
+  const [newTitle, setNewTitle] = useState(""); // New title for the file
 
-  // ✅ Fetch file list from API
+  // Fetch file list from API
   const fetchFiles = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}file/files`);
+      const response = await axios.get(`${API_URL}file/files`); // Fetch all files
       setFiles(response.data); // Set all files
       setFilteredFiles(response.data); // Initially, show all files
     } catch (error) {
@@ -55,33 +58,34 @@ function Parent(props) {
 
   // Handle search input change
   const handleSearch = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
+    const query = e.target.value; // Get the search query
+    setSearchQuery(query); // Update the search query state
 
     // Filter files locally based on the search query
     const filtered = files.filter((file) =>
-      file.title.toLowerCase().includes(query.toLowerCase())
+      file.title.toLowerCase().includes(query.toLowerCase()) // Case-insensitive search
     );
-    setFilteredFiles(filtered);
+    setFilteredFiles(filtered); // Update the filtered files state
   };
 
-  // ✅ Handle file upload
+  // Handle file upload
   const handleUpload = async (file) => {
     if (!file) {
       message.error("Please select a file to upload.");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const formData = new FormData(); // Create a new FormData instance
+    formData.append("file", file); // Append the file to the form data
 
+    // Make an HTTP request to the backend API with the form data
     try {
       const response = await axios.post(`${API_URL}file/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": "multipart/form-data" }, // Set the content type for the request
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
-          );
+          ); // Calculate the percentage of upload completion
           console.log(`Uploading: ${percentCompleted}%`);
         },
       });
@@ -95,28 +99,28 @@ function Parent(props) {
     }
   };
 
-  // ✅ Handle file download
+  // Handle file download
   const handleDownload = async (fileId) => {
     try {
-      const file = files.find((f) => f.id === fileId);
+      const file = files.find((f) => f.id === fileId); // Find the file by ID
       if (!file) {
         console.error("❌ File not found in state.");
         return;
       }
 
       const response = await axios.get(
-        `http://localhost:8000/file/download/${fileId}`,
-        { responseType: "blob" }
+        `http://localhost:8000/file/download/${fileId}`, // Download the file by ID
+        { responseType: "blob" } // Set the response type to blob
       );
 
       // Create a download link for the file
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${file.title}`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const url = window.URL.createObjectURL(new Blob([response.data])); // Create a URL for the blob
+      const link = document.createElement("a"); // Create a new <a> element
+      link.href = url; // Set the URL to the link
+      link.setAttribute("download", `${file.title}`); // Set the download attribute with the file name
+      document.body.appendChild(link); // Append the link to the body
+      link.click(); // Click the link
+      document.body.removeChild(link); // Remove the link from the body
 
       console.log("File downloaded successfully!");
     } catch (error) {
@@ -124,7 +128,7 @@ function Parent(props) {
     }
   };
 
-  // ✅ Handle file deletion
+  // Handle file deletion
   const handleDelete = async (fileId) => {
     setLoading(true);
     setError(null);
@@ -132,7 +136,7 @@ function Parent(props) {
 
     try {
       const response = await axios.delete(
-        `http://localhost:8000/file/delete/${fileId}`
+        `http://localhost:8000/file/delete/${fileId}` // Delete the file by ID
       );
       if (response.status === 200) {
         setSuccess("File deleted successfully!");
@@ -148,14 +152,14 @@ function Parent(props) {
     }
   };
 
-  // ✅ Use Dropzone for drag-and-drop file upload
+  // Use Dropzone for drag-and-drop file upload
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: (acceptedFiles) => {
-      acceptedFiles.forEach((file) => handleUpload(file));
+      acceptedFiles.forEach((file) => handleUpload(file)); // Handle each uploaded file
     },
   });
 
-  // ✅ Map file extensions to Ant Design icons
+  // Map file extensions to Ant Design icons
   const getFileIcon = (extension) => {
     const fileIcons = {
       jpg: <FileImageOutlined />,
@@ -180,10 +184,10 @@ function Parent(props) {
       folder: <FolderOutlined />,
     };
 
-    return fileIcons[extension] || <FileOutlined />;
+    return fileIcons[extension] || <FileOutlined />; // Default to FileOutlined icon
   };
 
-  // ✅ Format date to a readable format
+  // Format date to a readable format
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -192,19 +196,19 @@ function Parent(props) {
     });
   };
 
-  // ✅ Filter files based on the `type` prop
+  // Filter files based on the `type` prop
   const filterFilesByType = (files, type) => {
     switch (type) {
       case "images":
         return files.filter((file) => {
-          const extension = file.fileextension?.toLowerCase();
+          const extension = file.fileextension?.toLowerCase(); // Get the file extension
           return ["jpg", "jpeg", "png", "gif", "mp4", "avi", "mov"].includes(
             extension
           );
         });
       case "files":
         return files.filter((file) => {
-          const extension = file.fileextension?.toLowerCase();
+          const extension = file.fileextension?.toLowerCase(); // Get the file extension
           return !["jpg", "jpeg", "png", "gif", "mp4", "avi", "mov"].includes(
             extension
           );
@@ -219,12 +223,8 @@ function Parent(props) {
   const finalFilteredFiles = filterFilesByType(filteredFiles, type);
 
   const customIcon = (
-    <LoadingOutlined style={{ fontSize: 40, color: "#4d6bfe" }} spin />
+    <LoadingOutlined style={{ fontSize: 40, color: "#4d6bfe" }} spin /> // The spin size and color
   );
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingFile, setEditingFile] = useState(null);
-  const [newTitle, setNewTitle] = useState("");
 
   // Open the edit modal
   const showEditModal = (file) => {
@@ -249,8 +249,8 @@ function Parent(props) {
 
     try {
       const response = await axios.patch(
-        `http://localhost:8000/file/edit/${editingFile.id}`,
-        { title: newTitle }
+        `http://localhost:8000/file/edit/${editingFile.id}`, // Update the file title by ID
+        { title: newTitle } // Send the new title in the request body
       );
 
       if (response.status === 200) {
@@ -290,7 +290,7 @@ function Parent(props) {
               props.hide === "true" ? "hidden" : ""
             }`}
           >
-            {/* ✅ Drag-and-Drop Upload Component */}
+            {/* Drag-and-Drop Upload Component */}
             <div
               {...getRootProps()}
               className="border-[2px] border-dashed rounded-sm border-[#d9d9d9] text-center cursor-pointer p-20"
@@ -308,7 +308,7 @@ function Parent(props) {
           </div>
 
           <div className="bg-ternary rounded-sm p-3 mt-3">
-            {/* ✅ File List */}
+            {/* File List */}
             <Spin spinning={loading} indicator={customIcon}>
               <List
                 itemLayout="horizontal"

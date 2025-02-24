@@ -3,10 +3,10 @@ const { pool } = require("../config/db.js"); // PostgreSQL connection
 // 🔹 Base Class: Bucket (Common Methods)
 class Bucket {
   constructor(clientId, clientSecret, redirectUri, tableName) {
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
-    this.redirectUri = redirectUri;
-    this.tableName = tableName;
+    this.clientId = clientId; // OAuth Client ID
+    this.clientSecret = clientSecret; // OAuth Client Secret
+    this.redirectUri = redirectUri; // OAuth Redirect URI
+    this.tableName = tableName; // PostgreSQL table name for storing tokens
   }
 
   // Save tokens to PostgreSQL
@@ -19,10 +19,10 @@ class Bucket {
          DO UPDATE SET access_token = EXCLUDED.access_token, expiry_date = EXCLUDED.expiry_date`,
         [accessToken, refreshToken, expiryDate]
       );
-      console.log(`✅ Tokens saved to ${this.tableName}`);
+      console.log(`Tokens saved to ${this.tableName}`);
     } catch (error) {
       console.error(
-        `❌ Error saving tokens to ${this.tableName}:`,
+        `Error saving tokens to ${this.tableName}:`,
         error.message
       );
     }
@@ -35,7 +35,7 @@ class Bucket {
       return res.rows;
     } catch (error) {
       console.error(
-        `❌ Error loading tokens from ${this.tableName}:`,
+        `Error loading tokens from ${this.tableName}:`,
         error.message
       );
       return [];
@@ -47,23 +47,30 @@ class Bucket {
       const result = await pool.query(`SELECT COUNT(*) FROM ${this.tableName}`);
       return result.rows[0].count;
     } catch (error) {
-      console.error("❌ Error counting users in google_accounts:", error.message);
+      console.error(
+        "Error counting users in google_accounts:",
+        error.message
+      );
       throw error; // Re-throw the error to be handled by the route
     }
   }
 
+  // Abstract method to fetch files from the cloud storage
   listFiles() {
     throw new Error("listFiles() must be implemented in a subclass");
   }
 
+  // Abstract method to upload a file to the cloud storage
   uploadFile(file) {
     throw new Error("uploadFile() must be implemented in a subclass");
   }
 
+  // Abstract method to download a file from the cloud storage
   downloadFile(fileId) {
     throw new Error("downloadFile() must be implemented in a subclass");
   }
 
+  // Abstract method to delete a file from the cloud storage
   deleteFile(fileId) {
     throw new Error("deleteFile() must be implemented in a subclass");
   }

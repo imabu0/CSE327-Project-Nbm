@@ -28,7 +28,7 @@ router.get("/user", protectRoute, async (req, res) => {
     res.json({ name: result.rows[0].name }); // Send the user's name as a response
   } catch (error) {
     // Log the error message to the console for debugging purposes
-    console.error("❌ Error fetching name:", error.message);
+    console.error("Error fetching name:", error.message);
     // Send a 500 Internal Server Error response if an error occurs
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -47,7 +47,7 @@ router.get("/users", async (req, res) => {
     res.json({ count }); // Send response with count
   } catch (error) {
     // Log the error message to the console for debugging
-    console.error("❌ Error counting users:", error.message);
+    console.error("Error counting users:", error.message);
 
     // Send a 500 Internal Server Error response if an error occurs
     res.status(500).json({ error: "Internal Server Error" });

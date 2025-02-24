@@ -2,7 +2,7 @@ const { registerUser, loginUser } = require("./models/auth.model.js");
 const userRoutes = require("./routes/userRoutes.js");
 const googleRoutes = require("./routes/googleRoutes.js");
 const dropboxRoutes = require("./routes/dropboxRoutes.js");
-const fileRoutes = require("./routes/fileRoutes.js")
+const fileRoutes = require("./routes/fileRoutes.js");
 
 // **Express Routes**
 const express = require("express");
@@ -10,8 +10,8 @@ const app = express();
 const cors = require("cors");
 const session = require("express-session");
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-app.use(express.json());
+app.use(cors({ origin: "http://localhost:5173", credentials: true })); // **CORS**
+app.use(express.json()); // **Body Parser**
 app.use(
   session({
     secret: "your-secret-key",
@@ -29,4 +29,4 @@ app.use("/file", fileRoutes); // **File Routes**
 
 // **Start Server**
 const PORT = process.env.PORT;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(` - Server running on port ${PORT}`)); // **Server Listening**

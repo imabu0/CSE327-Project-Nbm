@@ -33,16 +33,17 @@ export const Dashboard = () => {
       // Fetch available storage space
       const spaceResponse = await axios.get("http://localhost:8000/file/space");
 
-      // Calculate total available space (in bytes)
+      // Calculate total available space (in bytes) for google drives
       const googleSpace = spaceResponse.data.google.reduce(
         (total, bucket) => total + bucket.available,
         0
       );
+      // Calculate total available space (in bytes) for dropbox
       const dropboxSpace = spaceResponse.data.dropbox.reduce(
         (total, bucket) => total + bucket.available,
         0
       );
-      const totalAvailableSpace = googleSpace + dropboxSpace;
+      const totalAvailableSpace = googleSpace + dropboxSpace; // Total available space
 
       // Convert bytes to GB
       const totalAvailableSpaceGB = (
@@ -83,10 +84,11 @@ export const Dashboard = () => {
         <Sidebar />
       </div>
 
+      {/* Main content */}
       <div className="w-full px-3">
         <div className="mt-3 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <Avatar />
+          <Avatar /> 
         </div>
 
         {loading && ( // Loading state
@@ -150,6 +152,7 @@ export const Dashboard = () => {
             <div className="bg-ternary rounded-sm p-3 mt-3">
               {/* Link Buckets Button */}
               <div className="flex gap-3 items-center justify-center">
+                {/* Link Google Accounts */}
                 <button
                   onClick={() =>
                     (window.location.href =
@@ -157,8 +160,9 @@ export const Dashboard = () => {
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >
-                  🔗 Link Google
+                  Link Google
                 </button>
+                {/* Link Dropbox Accounts */}
                 <button
                   onClick={() =>
                     (window.location.href =
@@ -166,7 +170,7 @@ export const Dashboard = () => {
                   }
                   className="bg-primary text-white px-4 py-2 rounded my-40"
                 >
-                  🔗 Link Dropbox
+                  Link Dropbox
                 </button>
               </div>
             </div>

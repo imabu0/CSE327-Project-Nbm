@@ -55,6 +55,11 @@ class Bucket {
     }
   }
 
+  // Abstract method to get the available storage
+  getAvailableStorage() {
+    throw new Error("getAvailableStorage() must be implemented in a subclass");
+  }
+
   // Abstract method to fetch files from the cloud storage
   listFiles() {
     throw new Error("listFiles() must be implemented in a subclass");

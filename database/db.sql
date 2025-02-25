@@ -1,5 +1,5 @@
 -- create user_info table
-CREATE TABLE users (
+CREATE TABLE user_info (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   username VARCHAR(255) UNIQUE NOT NULL,

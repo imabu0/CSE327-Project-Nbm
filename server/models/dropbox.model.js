@@ -1,7 +1,6 @@
 const Bucket = require("./bucket.model.js");
 const axios = require("axios");
 const fs = require("fs");
-const path = require("path");
 
 class DropboxBucket extends Bucket {
   constructor() {

@@ -62,8 +62,8 @@ function Parent(props) {
     setSearchQuery(query); // Update the search query state
 
     // Filter files locally based on the search query
-    const filtered = files.filter((file) =>
-      file.title.toLowerCase().includes(query.toLowerCase()) // Case-insensitive search
+    const filtered = files.filter(
+      (file) => file.title.toLowerCase().includes(query.toLowerCase()) // Case-insensitive search
     );
     setFilteredFiles(filtered); // Update the filtered files state
   };
@@ -270,11 +270,10 @@ function Parent(props) {
         <Sidebar />
       </div>
       <div className="w-full px-3">
-        <div>
-          <div className="mt-3 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">{props.title}</h1>
-            {/* Search Input */}
-            <div className="flex items-center gap-3">
+        <div className="mt-3 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">{props.title}</h1>
+          {/* Search Input */}
+          <div className="flex items-center gap-3">
             <Input
               placeholder="Search in infinite cloud"
               value={searchQuery}
@@ -282,95 +281,98 @@ function Parent(props) {
               className="w-[350px] h-[48px]"
             />
             <Avatar />
-            </div>
           </div>
-
-          <div
-            className={`m-auto bg-ternary rounded-sm p-3 mt-3 ${
-              props.hide === "true" ? "hidden" : ""
-            }`}
-          >
-            {/* Drag-and-Drop Upload Component */}
+        </div>
+        <div className="flex gap-3 mt-3">
+          <div className="w-full">
             <div
-              {...getRootProps()}
-              className="border-[2px] border-dashed rounded-sm border-[#d9d9d9] text-center cursor-pointer p-20"
+              className={`m-auto bg-ternary rounded-sm p-3 ${
+                props.hide === "true" ? "hidden" : ""
+              }`}
             >
-              <input {...getInputProps()} />
-              <p>Drag 'n' drop files here, or click to select files</p>
-              <Button
-                className="bg-primary"
-                icon={<UploadOutlined />}
-                type="primary"
+              {/* Drag-and-Drop Upload Component */}
+              <div
+                {...getRootProps()}
+                className="border-[2px] border-dashed rounded-sm border-[#d9d9d9] text-center cursor-pointer p-20"
               >
-                Upload
-              </Button>
+                <input {...getInputProps()} />
+                <p>Drag 'n' drop files here, or click to select files</p>
+                <Button
+                  className="bg-primary"
+                  icon={<UploadOutlined />}
+                  type="primary"
+                >
+                  Upload
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-ternary rounded-sm p-3 mt-3">
+              {/* File List */}
+              <Spin spinning={loading} indicator={customIcon}>
+                <List
+                  itemLayout="horizontal"
+                  dataSource={[...finalFilteredFiles].reverse()} // Use finalFilteredFiles
+                  renderItem={(file) => {
+                    const extension = file.fileextension
+                      ? file.fileextension.toLowerCase()
+                      : "unknown";
+                    const fileIcon = getFileIcon(extension);
+                    const formattedDate = formatDate(file.created_at);
+
+                    return (
+                      <List.Item
+                        actions={[
+                          <Button
+                            icon={<EditOutlined />}
+                            onClick={() => showEditModal(file)}
+                          >
+                            Edit
+                          </Button>,
+                          <Button
+                            icon={<DownloadOutlined />}
+                            onClick={() => handleDownload(file.id)}
+                          >
+                            Download
+                          </Button>,
+                          <Button
+                            icon={<DeleteOutlined />}
+                            danger
+                            onClick={() => handleDelete(file.id)}
+                          >
+                            Delete
+                          </Button>,
+                        ]}
+                      >
+                        <List.Item.Meta
+                          title={
+                            <span>
+                              {fileIcon} {file.title}
+                            </span>
+                          }
+                          description={`Uploaded on: ${formattedDate}`}
+                        />
+                      </List.Item>
+                    );
+                  }}
+                />
+                {/* Edit Modal */}
+                <Modal
+                  title="Edit Title"
+                  visible={isModalVisible}
+                  onOk={handleEditTitle}
+                  onCancel={handleCancel}
+                >
+                  <Input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Enter new title"
+                  />
+                </Modal>
+              </Spin>
             </div>
           </div>
-
-          <div className="bg-ternary rounded-sm p-3 mt-3">
-            {/* File List */}
-            <Spin spinning={loading} indicator={customIcon}>
-              <List
-                itemLayout="horizontal"
-                dataSource={[...finalFilteredFiles].reverse()} // Use finalFilteredFiles
-                renderItem={(file) => {
-                  const extension = file.fileextension
-                    ? file.fileextension.toLowerCase()
-                    : "unknown";
-                  const fileIcon = getFileIcon(extension);
-                  const formattedDate = formatDate(file.created_at);
-
-                  return (
-                    <List.Item
-                      actions={[
-                        <Button
-                          icon={<EditOutlined />}
-                          onClick={() => showEditModal(file)}
-                        >
-                          Edit
-                        </Button>,
-                        <Button
-                          icon={<DownloadOutlined />}
-                          onClick={() => handleDownload(file.id)}
-                        >
-                          Download
-                        </Button>,
-                        <Button
-                          icon={<DeleteOutlined />}
-                          danger
-                          onClick={() => handleDelete(file.id)}
-                        >
-                          Delete
-                        </Button>,
-                      ]}
-                    >
-                      <List.Item.Meta
-                        title={
-                          <span>
-                            {fileIcon} {file.title}
-                          </span>
-                        }
-                        description={`Uploaded on: ${formattedDate}`}
-                      />
-                    </List.Item>
-                  );
-                }}
-              />
-              {/* Edit Modal */}
-              <Modal
-                title="Edit Title"
-                visible={isModalVisible}
-                onOk={handleEditTitle}
-                onCancel={handleCancel}
-              >
-                <Input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Enter new title"
-                />
-              </Modal>
-            </Spin>
-          </div>
+          <div className="w-[300px] bg-ternary p-3 rounded-sm">Image</div>
         </div>
       </div>
     </div>

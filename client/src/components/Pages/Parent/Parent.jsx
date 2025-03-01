@@ -17,6 +17,7 @@ import {
   FileOutlined,
   FolderOutlined,
   VideoCameraOutlined,
+  PictureOutlined,
 } from "@ant-design/icons"; // Import Ant Design icons
 import { useDropzone } from "react-dropzone"; // Import react-dropzone for drag-and-drop file upload
 import { Sidebar } from "../../Sidebar/Sidebar"; // Import Sidebar component
@@ -273,7 +274,20 @@ function Parent(props) {
         <div className="mt-3 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">{props.title}</h1>
           {/* Search Input */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <input
+              id="imageSearch"
+              name="imageSearch"
+              type="file"
+              accept="image/*"
+              className="hidden"
+            />
+            <label
+              htmlFor="imageSearch"
+              className="w-[48px] h-[48px] flex items-center justify-center bg-ternary border rounded-sm border-[#c4c4c4] cursor-pointer"
+            >
+              <PictureOutlined />
+            </label>
             <Input
               placeholder="Search in infinite cloud"
               value={searchQuery}

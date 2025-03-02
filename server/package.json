@@ -2,10 +2,10 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "reverse.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "nodemon reverse.js"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +29,6 @@
     "querystring": "^0.2.1",
     "sharp": "^0.33.5",
     "stream": "^0.0.3",
-    "weaviate-client": "^3.4.0"
+    "weaviate-ts-client": "^2.2.0"
   }
 }

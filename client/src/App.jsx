@@ -4,6 +4,7 @@ import { Dashboard } from "./components/Pages/Dashboard/Dashboard";
 import { All } from "./components/Pages/All/All";
 import { Files } from "./components/Pages/Files/Files";
 import { Images } from "./components/Pages/Images/Images";
+import { Reverse } from "./components/Reverse";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route exact path="/all" element={<All />} />
         <Route exact path="/files" element={<Files />} />
         <Route exact path="/images" element={<Images />} />
+        <Route exact path="/reverse" element={<Reverse />} />
       </Routes>
     </Main>
   );

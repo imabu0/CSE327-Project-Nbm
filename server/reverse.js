@@ -1,79 +1,100 @@
-const express = require("express");
-const multer = require("multer");
-const { google } = require("googleapis");
-const tf = require("@tensorflow/tfjs-node");
-const mobilenet = require("@tensorflow-models/mobilenet");
+const express = require('express');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const cors = require('cors');
+const sharp = require('sharp');
 
 const app = express();
-const upload = multer();
+const upload = multer({ dest: 'uploads/' });
+app.use(cors());
 
-// Initialize Google Drive API
-const drive = google.drive({
-  version: "v3",
-  auth: new google.auth.GoogleAuth({
-    keyFile: "path/to/your/credentials.json",
-    scopes: ["https://www.googleapis.com/auth/drive.readonly"],
-  }),
-});
+// Serve static files from the current directory
+app.use(express.static(path.join(__dirname)));
 
-// Load MobileNet model
-let model;
-(async () => {
-  model = await mobilenet.load();
-})();
+// Mock database of image hashes (replace with actual database)
+const imageDatabase = [
+  { id: '1', hash: 'abc123', url: 'http://localhost:3000/flower1.jpg' },
+  { id: '2', hash: 'def456', url: 'http://localhost:3000/flower2.jpg' },
+  { id: '3', hash: 'abc124', url: 'http://localhost:3000/flower3.jpg' },
+  { id: '4', hash: 'abc124', url: 'http://localhost:3000/panda1.jpg' },
+  { id: '5', hash: 'abc124', url: 'http://localhost:3000/panda2.jpg' },
+];
 
-// Endpoint to handle image search
-app.post("/api/search", upload.single("image"), async (req, res) => {
+// Route to search for similar images
+app.post('/search', upload.single('image'), async (req, res) => {
   try {
-    const uploadedImage = req.file.buffer;
-
-    // Extract features from the uploaded image
-    const uploadedImageTensor = tf.node.decodeImage(uploadedImage);
-    const uploadedImageFeatures = await model.infer(uploadedImageTensor, true);
-
-    // Fetch images from Google Drive
-    const driveResponse = await drive.files.list({
-      q: "mimeType contains 'image/'",
-      fields: "files(id, name)",
-    });
-
-    const similarImages = [];
-    for (const file of driveResponse.data.files) {
-      const imageResponse = await drive.files.get(
-        { fileId: file.id, alt: "media" },
-        { responseType: "arraybuffer" }
-      );
-
-      const storedImageTensor = tf.node.decodeImage(
-        Buffer.from(imageResponse.data)
-      );
-      const storedImageFeatures = await model.infer(storedImageTensor, true);
-
-      // Compare features using cosine similarity
-      const similarity = cosineSimilarity(
-        uploadedImageFeatures,
-        storedImageFeatures
-      );
-
-      if (similarity > 0.8) {
-        // Adjust threshold as needed
-        similarImages.push(`https://drive.google.com/uc?id=${file.id}`);
-      }
+    if (!req.file) {
+      return res.status(400).send('No file uploaded.');
     }
 
-    res.json(similarImages);
+    const filePath = req.file.path;
+
+    // Generate hash for the uploaded image
+    const queryHash = await generateImageHash(filePath);
+    console.log('Generated hash for uploaded image:', queryHash);
+
+    // Find similar images in the database
+    const similarImages = imageDatabase.filter((image) => {
+      const distance = hammingDistance(queryHash, image.hash);
+      console.log(`Comparing with image ${image.id}: Hash=${image.hash}, Distance=${distance}`);
+      return distance <= 2; // Allow small differences (adjust threshold as needed)
+    });
+
+    // Clean up the uploaded file
+    fs.unlinkSync(filePath);
+
+    // Return similar images
+    res.status(200).json({ similarImages });
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).send("Internal Server Error");
+    console.error('Error searching for similar images:', error);
+    res.status(500).send('Error searching for similar images');
   }
 });
 
-// Helper function to calculate cosine similarity
-function cosineSimilarity(a, b) {
-  const dotProduct = tf.dot(a, b).dataSync()[0];
-  const normA = tf.norm(a).dataSync()[0];
-  const normB = tf.norm(b).dataSync()[0];
-  return dotProduct / (normA * normB);
+// Generate a perceptual hash for the image
+async function generateImageHash(filePath) {
+  try {
+    // Resize image to 8x8 and convert to grayscale
+    const buffer = await sharp(filePath)
+      .resize(8, 8)
+      .grayscale()
+      .raw()
+      .toBuffer();
+
+    // Calculate the average pixel value
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      sum += buffer[i];
+    }
+    const avg = sum / buffer.length;
+
+    // Generate hash based on pixel values
+    let hash = '';
+    for (let i = 0; i < buffer.length; i++) {
+      hash += buffer[i] > avg ? '1' : '0';
+    }
+
+    return hash;
+  } catch (error) {
+    console.error('Error generating image hash:', error);
+    throw error;
+  }
 }
 
-app.listen(3001, () => console.log("Server running on port 3000"));
+// Calculate Hamming distance between two hashes
+function hammingDistance(hash1, hash2) {
+  let distance = 0;
+  for (let i = 0; i < hash1.length; i++) {
+    if (hash1[i] !== hash2[i]) {
+      distance++;
+    }
+  }
+  return distance;
+}
+
+// Start the server
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

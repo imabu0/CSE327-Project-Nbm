@@ -12,14 +12,38 @@ app.use(cors());
 // Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
 
-// Mock database of image hashes (replace with actual database)
-const imageDatabase = [
-  { id: '1', hash: 'abc123', url: 'http://localhost:3000/flower1.jpg' },
-  { id: '2', hash: 'def456', url: 'http://localhost:3000/flower2.jpg' },
-  { id: '3', hash: 'abc124', url: 'http://localhost:3000/flower3.jpg' },
-  { id: '4', hash: 'abc124', url: 'http://localhost:3000/panda1.jpg' },
-  { id: '5', hash: 'abc124', url: 'http://localhost:3000/panda2.jpg' },
-];
+// Generate color histograms for images in the directory
+const imageFiles = ['flower1.jpg', 'flower2.jpg', 'flower3.jpg', 'panda1.jpg', 'panda2.jpg'];
+const imageDatabase = [];
+
+// Function to generate a color histogram for an image
+async function generateHistogram(filePath) {
+  const image = await sharp(filePath).resize(100, 100).raw().toBuffer();
+  const histogram = new Array(256).fill(0);
+
+  for (let i = 0; i < image.length; i += 3) {
+    const r = image[i];
+    const g = image[i + 1];
+    const b = image[i + 2];
+    const avg = Math.round((r + g + b) / 3);
+    histogram[avg]++;
+  }
+
+  return histogram;
+}
+
+// Function to initialize the image database
+async function initializeImageDatabase() {
+  for (let i = 0; i < imageFiles.length; i++) {
+    const filePath = path.join(__dirname, imageFiles[i]);
+    const histogram = await generateHistogram(filePath);
+    imageDatabase.push({ id: String(i + 1), histogram, url: `http://localhost:3000/${imageFiles[i]}` });
+  }
+  console.log('Image database initialized');
+}
+
+// Initialize the image database on server start
+initializeImageDatabase();
 
 // Route to search for similar images
 app.post('/search', upload.single('image'), async (req, res) => {
@@ -30,16 +54,15 @@ app.post('/search', upload.single('image'), async (req, res) => {
 
     const filePath = req.file.path;
 
-    // Generate hash for the uploaded image
-    const queryHash = await generateImageHash(filePath);
-    console.log('Generated hash for uploaded image:', queryHash);
+    // Generate histogram for the uploaded image
+    const queryHistogram = await generateHistogram(filePath);
 
     // Find similar images in the database
-    const similarImages = imageDatabase.filter((image) => {
-      const distance = hammingDistance(queryHash, image.hash);
-      console.log(`Comparing with image ${image.id}: Hash=${image.hash}, Distance=${distance}`);
-      return distance <= 2; // Allow small differences (adjust threshold as needed)
-    });
+    const similarImages = imageDatabase.map((image) => {
+      const similarity = histogramSimilarity(queryHistogram, image.histogram);
+      return { ...image, similarity };
+    }).sort((a, b) => b.similarity - a.similarity) // Sort by similarity
+      .slice(0, 5); // Return top 5 similar images
 
     // Clean up the uploaded file
     fs.unlinkSync(filePath);
@@ -52,45 +75,13 @@ app.post('/search', upload.single('image'), async (req, res) => {
   }
 });
 
-// Generate a perceptual hash for the image
-async function generateImageHash(filePath) {
-  try {
-    // Resize image to 8x8 and convert to grayscale
-    const buffer = await sharp(filePath)
-      .resize(8, 8)
-      .grayscale()
-      .raw()
-      .toBuffer();
-
-    // Calculate the average pixel value
-    let sum = 0;
-    for (let i = 0; i < buffer.length; i++) {
-      sum += buffer[i];
-    }
-    const avg = sum / buffer.length;
-
-    // Generate hash based on pixel values
-    let hash = '';
-    for (let i = 0; i < buffer.length; i++) {
-      hash += buffer[i] > avg ? '1' : '0';
-    }
-
-    return hash;
-  } catch (error) {
-    console.error('Error generating image hash:', error);
-    throw error;
+// Calculate similarity between two histograms
+function histogramSimilarity(histogramA, histogramB) {
+  let sum = 0;
+  for (let i = 0; i < histogramA.length; i++) {
+    sum += Math.min(histogramA[i], histogramB[i]);
   }
-}
-
-// Calculate Hamming distance between two hashes
-function hammingDistance(hash1, hash2) {
-  let distance = 0;
-  for (let i = 0; i < hash1.length; i++) {
-    if (hash1[i] !== hash2[i]) {
-      distance++;
-    }
-  }
-  return distance;
+  return sum / Math.max(1, Math.max(...histogramA), Math.max(...histogramB));
 }
 
 // Start the server

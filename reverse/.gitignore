@@ -1,0 +1,55 @@
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Django specific
+*.py[cod]
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+*.pyo
+*.pyd
+__pycache__/
+*.coverage
+.coverage.*
+*.cover
+.coverage.*
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.log
+*.pot
+*.mo
+*.pot~
+*.migrations/
+*.py,cover
+*.egg-info/
+*.eggs/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+*.DS_Store
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store

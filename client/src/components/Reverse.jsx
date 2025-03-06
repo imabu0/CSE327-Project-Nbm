@@ -13,23 +13,20 @@ export const Reverse = () => {
 
     try {
       // Send image to backend for search
-      const response = await axios.post('http://localhost:3000/search', formData, {
+      const response = await axios.post('http://localhost:8000/api/search/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Log the backend response
-      console.log('Backend response:', response.data);
+      // Set similar images in state
+      setSimilarImages(response.data.similarImages);
 
-      // Check if similar images were found
-      if (response.data.similarImages && response.data.similarImages.length > 0) {
-        setSimilarImages(response.data.similarImages);
-        message.success('Search completed successfully!');
+      if (response.data.similarImages.length === 0) {
+        message.info('No similar images found with a similarity score of 0.70 or higher.');
       } else {
-        setSimilarImages([]);
-        message.info('No similar images found.');
+        message.success('Search completed successfully!');
       }
     } catch (error) {
-      console.error('Error searching for similar images:', error);
+      console.error(error);
       message.error('Error searching for similar images');
     }
   };
@@ -51,16 +48,21 @@ export const Reverse = () => {
             <Button icon={<UploadOutlined />}>Upload Image to Search</Button>
           </Upload>
         </Col>
-        {similarImages.length > 0 && (
+        {similarImages.length > 0 ? (
           <Col span={24}>
             <h2>Similar Images</h2>
             <Row gutter={[16, 16]}>
               {similarImages.map((image, index) => (
                 <Col key={index}>
                   <Image src={image.url} width={200} />
+                  <p>Similarity: {image.similarity.toFixed(2)}</p>
                 </Col>
               ))}
             </Row>
+          </Col>
+        ) : (
+          <Col span={24}>
+            <p>No similar images found.</p>
           </Col>
         )}
       </Row>

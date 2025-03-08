@@ -1,91 +1,70 @@
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
-const cors = require('cors');
-const sharp = require('sharp');
+const express = require("express");
+const multer = require("multer");
+const { spawn } = require("child_process");
+const path = require("path");
+const fs = require("fs");
+const cors = require("cors");
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 app.use(cors());
 
-// Serve static files from the current directory
-app.use(express.static(path.join(__dirname)));
+// Configure file upload
+const upload = multer({ dest: "uploads/" });
 
-// Generate color histograms for images in the directory
-const imageFiles = ['flower1.jpg', 'flower2.jpg', 'flower3.jpg', 'panda1.jpg', 'panda2.jpg'];
-const imageDatabase = [];
-
-// Function to generate a color histogram for an image
-async function generateHistogram(filePath) {
-  const image = await sharp(filePath).resize(100, 100).raw().toBuffer();
-  const histogram = new Array(256).fill(0);
-
-  for (let i = 0; i < image.length; i += 3) {
-    const r = image[i];
-    const g = image[i + 1];
-    const b = image[i + 2];
-    const avg = Math.round((r + g + b) / 3);
-    histogram[avg]++;
-  }
-
-  return histogram;
-}
-
-// Function to initialize the image database
-async function initializeImageDatabase() {
-  for (let i = 0; i < imageFiles.length; i++) {
-    const filePath = path.join(__dirname, imageFiles[i]);
-    const histogram = await generateHistogram(filePath);
-    imageDatabase.push({ id: String(i + 1), histogram, url: `http://localhost:3000/${imageFiles[i]}` });
-  }
-  console.log('Image database initialized');
-}
-
-// Initialize the image database on server start
-initializeImageDatabase();
-
-// Route to search for similar images
-app.post('/search', upload.single('image'), async (req, res) => {
+// API endpoint to handle image search
+app.post("/search", upload.single("image"), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).send('No file uploaded.');
+      return res.status(400).json({ error: "No image file provided" });
     }
 
-    const filePath = req.file.path;
+    const uploadedFilePath = req.file.path;
+    console.log(`Uploaded file: ${uploadedFilePath}`);
 
-    // Generate histogram for the uploaded image
-    const queryHistogram = await generateHistogram(filePath);
+    // Call the Python script
+    const pythonProcess = spawn("python3", ["search.py", uploadedFilePath]);
 
-    // Find similar images in the database
-    const similarImages = imageDatabase.map((image) => {
-      const similarity = histogramSimilarity(queryHistogram, image.histogram);
-      return { ...image, similarity };
-    }).sort((a, b) => b.similarity - a.similarity) // Sort by similarity
-      .slice(0, 5); // Return top 5 similar images
+    let result = "";
+    let errorOutput = "";
 
-    // Clean up the uploaded file
-    fs.unlinkSync(filePath);
+    pythonProcess.stdout.on("data", (data) => {
+      result += data.toString();
+    });
 
-    // Return similar images
-    res.status(200).json({ similarImages });
+    pythonProcess.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on("close", (code) => {
+      if (code !== 0) {
+        console.error(`Python script error: ${errorOutput}`);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+
+      try {
+        // Parse the result from the Python script
+        const similarImages = JSON.parse(result);
+
+        // Clean up the uploaded file
+        fs.unlinkSync(uploadedFilePath);
+        console.log(`File cleaned up: ${uploadedFilePath}`);
+
+        // Return similar images
+        res.json({ similarImages });
+      } catch (error) {
+        console.error(`Error parsing JSON: ${error.message}`);
+        console.error(`Python script output: ${result}`);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
   } catch (error) {
-    console.error('Error searching for similar images:', error);
-    res.status(500).send('Error searching for similar images');
+    console.error(`Error in search endpoint: ${error.message}`);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Calculate similarity between two histograms
-function histogramSimilarity(histogramA, histogramB) {
-  let sum = 0;
-  for (let i = 0; i < histogramA.length; i++) {
-    sum += Math.min(histogramA[i], histogramB[i]);
-  }
-  return sum / Math.max(1, Math.max(...histogramA), Math.max(...histogramB));
-}
-
 // Start the server
-const PORT = 3000;
+const PORT = 8000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

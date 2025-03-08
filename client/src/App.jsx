@@ -5,6 +5,7 @@ import { All } from "./components/Pages/All/All";
 import { Files } from "./components/Pages/Files/Files";
 import { Images } from "./components/Pages/Images/Images";
 import { Reverse } from "./components/Reverse";
+import { Flask } from "./components/Flask";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route exact path="/files" element={<Files />} />
         <Route exact path="/images" element={<Images />} />
         <Route exact path="/reverse" element={<Reverse />} />
+        <Route exact path="/flask" element={<Flask />} />
       </Routes>
     </Main>
   );

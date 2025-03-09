@@ -4,34 +4,43 @@ import { UploadOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 export const Flask = () => {
-  const [uploadedImage, setUploadedImage] = useState(null); // Stores the uploaded image
-  const [similarImages, setSimilarImages] = useState([]); // Stores similar images from the backend
-  const [loading, setLoading] = useState(false); // Loading state
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [similarImages, setSimilarImages] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // Handle file upload
   const handleUpload = async (file) => {
-    setLoading(true);
     const formData = new FormData();
     formData.append("image", file);
-    console.log("Uploading file:", file);
+
+    setLoading(true);
 
     try {
-      const response = await axios.post(
-        "http://localhost:8000/search",
+      // Upload image to the backend
+      const uploadResponse = await axios.post(
+        "http://localhost:8000/upload",
         formData,
         {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      console.log("Upload response:", response.data);
-      setUploadedImage(URL.createObjectURL(file));
-      setSimilarImages(response.data.similarImages);
+
+      // Set the uploaded image URL
+      setUploadedImage(uploadResponse.data.url);
       message.success("Image uploaded successfully!");
+
+      // Fetch similar images
+      const searchResponse = await axios.get("http://localhost:8000/search", {
+        params: { url: uploadResponse.data.url },
+      });
+
+      // Set similar images
+      setSimilarImages(searchResponse.data.similarImages);
+      message.success("Similar images fetched successfully!");
     } catch (error) {
-      console.error("Error uploading image:", error);
-      message.error("Failed to upload image. Please try again.");
+      console.error("Error:", error);
+      message.error(
+        error.response?.data?.message || "An error occurred. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -43,7 +52,6 @@ export const Flask = () => {
         Image Search
       </h1>
 
-      {/* Upload Section */}
       <Upload
         accept="image/*"
         beforeUpload={(file) => {
@@ -51,13 +59,13 @@ export const Flask = () => {
           return false; // Prevent default upload behavior
         }}
         showUploadList={false}
+        disabled={loading}
       >
         <Button icon={<UploadOutlined />} size="large" block>
           Upload Image
         </Button>
       </Upload>
 
-      {/* Display Uploaded Image */}
       {uploadedImage && (
         <div style={{ marginTop: "24px", textAlign: "center" }}>
           <h3>Uploaded Image</h3>
@@ -69,7 +77,6 @@ export const Flask = () => {
         </div>
       )}
 
-      {/* Display Similar Images */}
       {similarImages.length > 0 && (
         <div style={{ marginTop: "24px" }}>
           <h3>Similar Images</h3>
@@ -94,7 +101,6 @@ export const Flask = () => {
         </div>
       )}
 
-      {/* Loading Spinner */}
       {loading && (
         <div style={{ textAlign: "center", marginTop: "24px" }}>
           <Spin size="large" />

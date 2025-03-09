@@ -1,21 +1,17 @@
 import sys
 import json
 import os
-import logging
 import numpy as np
 from scipy.spatial.distance import cosine
 from tensorflow.keras.applications import MobileNet
 from tensorflow.keras.applications.mobilenet import preprocess_input
 from tensorflow.keras.preprocessing import image as keras_image
 
-# Configure logging to output to stderr
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-
 # Suppress TensorFlow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # Load pre-trained MobileNet model
-model = MobileNet(weights='imagenet', include_top=False, pooling='avg')
+model = MobileNet(weights="imagenet", include_top=False, pooling="avg")
 
 # Function to extract features from an image
 def extract_features(image_path):
@@ -44,14 +40,14 @@ PREDEFINED_IMAGES = [
 ]
 
 # Precompute features for predefined images
-MEDIA_ROOT = os.path.join(os.path.dirname(__file__), 'media', 'images')
+MEDIA_ROOT = os.path.join(os.path.dirname(__file__), "media", "images")
 for image_data in PREDEFINED_IMAGES:
-    image_path = os.path.join(MEDIA_ROOT, image_data['name'])
-    image_data['features'] = extract_features(image_path)
+    image_path = os.path.join(MEDIA_ROOT, image_data["name"])
+    image_data["features"] = extract_features(image_path)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print(json.dumps({'error': 'Invalid arguments'}))
+        print(json.dumps({"error": "Invalid arguments"}))
         sys.exit(1)
 
     uploaded_file_path = sys.argv[1]
@@ -59,14 +55,18 @@ if __name__ == '__main__':
 
     similar_images = []
     for image_data in PREDEFINED_IMAGES:
-        similarity = 1 - cosine(query_features, image_data['features'])
+        similarity = 1 - cosine(query_features, image_data["features"])
         if similarity >= 0.50:
-            similar_images.append({
-                'id': image_data['id'],
-                'name': image_data['name'],
-                'url': image_data['url'],
-                'similarity': float(similarity),
-            })
+            similar_images.append(
+                {
+                    "id": image_data["id"],
+                    "name": image_data["name"],
+                    "url": image_data["url"],
+                    "similarity": float(similarity),
+                }
+            )
 
-    similar_images.sort(key=lambda x: x['similarity'], reverse=True)
-    print(json.dumps(similar_images))  # Ensure only JSON is printed to stdout
+    similar_images.sort(key=lambda x: x["similarity"], reverse=True)
+
+    # Ensure only JSON is printed
+    print(json.dumps(similar_images))

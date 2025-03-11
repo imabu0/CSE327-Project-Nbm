@@ -1,0 +1,43 @@
+# Gradle-related files
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin/Java compiled files
+*.class
+*.kt.bin
+*.kts.bin
+*.jar
+*.war
+*.ear
+
+# IntelliJ/Android Studio project files
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code settings
+.vscode/
+*.code-workspace
+
+# Logs & system files
+logs/
+*.log
+*.swp
+.DS_Store
+Thumbs.db
+
+# Dependency caches
+**/node_modules/
+**/.npm/
+**/.yarn/
+package-lock.json
+yarn.lock
+
+# Environment variables & secrets
+.env
+*.keystore
+google-services.json
+firebase/

@@ -11,7 +11,7 @@ const cors = require("cors");
 const session = require("express-session");
 const axios = require("axios");
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true })); // **CORS**
+app.use(cors({ origin: ["http://localhost:5173","http://10.0.2.2:8000", "http://172.20.147.73:8000"], credentials: true })); // **CORS**
 app.use(express.json()); // **Body Parser**
 app.use(
   session({

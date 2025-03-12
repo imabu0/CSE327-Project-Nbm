@@ -7,9 +7,10 @@ const fileOp = new FileOp(); // Create an instance of the FileOp class
 const upload = multer({ dest: "uploads/" }); // Temporary folder for uploaded files
 
 // Upload route
-router.post("/upload", upload.single("file"), async (req, res) => {
+router.post("/upload", upload.single("file"), async (req, res) => { 
+  console.log("Uploaded File:", req.file);
   if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
+    return res.status(400).json({ error: "No file uploaded "});
   }
   
   try {

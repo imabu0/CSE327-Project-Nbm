@@ -1,108 +1,49 @@
-import express from "express";
-import pkg from "pg";
-import dotenv from "dotenv";
-import cors from "cors";
-import multer from "multer";
-import fs from "fs";
-import { google } from "googleapis";
+const { registerUser, loginUser } = require("./models/auth.model.js");
+const userRoutes = require("./routes/userRoutes.js");
+const googleRoutes = require("./routes/googleRoutes.js");
+const dropboxRoutes = require("./routes/dropboxRoutes.js");
+const fileRoutes = require("./routes/fileRoutes.js");
 
-// Load the environment variables
-dotenv.config();
-
-const { Client } = pkg; // Destructure Client from the imported module
-
-// Create a new client instance
-const client = new Client({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-
-// Connect to the PostgreSQL database
-async function connectToDatabase() {
-  try {
-    await client.connect();
-    console.log("Connected to the PostgreSQL database");
-  } catch (error) {
-    console.error("Error connecting to the PostgreSQL database", error);
-    process.exit(1); // Exit the process if the database connection fails
-  }
-}
-
-// Call the function to connect to the database
-connectToDatabase();
-
+// **Express Routes**
+const express = require("express");
 const app = express();
+const cors = require("cors");
+const session = require("express-session");
+const axios = require("axios");
 
-// Middleware to parse JSON requests
-app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: ["http://localhost:5173","http://10.0.2.2:8000", "http://172.20.147.73:8000"], credentials: true })); // **CORS**
+app.use(express.json()); // **Body Parser**
+app.use(
+  session({
+    secret: "your-secret-key",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
-// Define a route to register a new user
-app.post("/register", async (req, res) => {
-  const { name, username, password } = req.body;
+app.post("/api/register", registerUser); // **Route for Registration**
+app.post("/api/login", loginUser); // **Route for Login**
+app.use("/api", userRoutes); // **User Info**
+app.use("/google", googleRoutes); // **Google Routes**
+app.use("/dropbox", dropboxRoutes); // **Dropbox Routes**
+app.use("/file", fileRoutes); // **File Routes**
 
+// Weaviate API endpoint
+const weaviateURL = 'http://localhost:8080/v1';
+
+// Simple route to check Weaviate status
+app.get('/check-weaviate', async (req, res) => {
   try {
-    const result = await client.query(
-      "INSERT INTO user_info (name, username, password) VALUES ($1, $2, $3) RETURNING *",
-      [name, username, password]
-    );
-    res.send(result.rows[0]);
+    const response = await axios.get(`${weaviateURL}/.well-known/ready`);
+    res.json({
+      message: 'Weaviate is up and running!',
+      status: response.data
+    });
   } catch (error) {
-    console.error("Error executing query", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ message: 'Error connecting to Weaviate', error: error.message });
   }
 });
 
-// Define a route to login a user
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-
-  try {
-    const result = await client.query(
-      "SELECT * FROM user_info WHERE username = $1 AND password = $2",
-      [username, password]
-    );
-    if (result.rows.length > 0) {
-      res.send(result.rows[0]);
-    } else {
-      res.status(401).json({ error: "Invalid credentials" });
-    }
-  } catch (error) {
-    console.error("Error executing query", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Define a route to upload a file to Google Drive
-
-// Define a route to list files in Google Drive
-
-// Define a route to download a file from Google Drive
-
-// Define a route to delete a file from Google Drive
-
-// Define a route to upload a file
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./uploads");
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
-
-app.post("/upload", upload.single("file"), (req, res) => {
-  console.log(req.file);
-  console.log(req.body);
-});
-
-// Start the server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// **Start Server**
+const PORT = process.env.PORT;
+app.listen(PORT, () => console.log(` - Server running on port ${PORT}`)); // **Server Listening**

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Preview</title>
+</head>
+<body>
+    <h1>Upload a PDF or PPTX file to preview</h1>
+    <input type="file" id="fileInput" accept=".pdf,.pptx">
+    <div id="preview"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const previewDiv = document.getElementById('preview');
+                    if (data.type === 'pdf') {
+                        previewDiv.innerHTML = `<embed src="${URL.createObjectURL(file)}" type="application/pdf" width="100%" height="600px" />`;
+                    } else if (data.type === 'pptx') {
+                        previewDiv.innerHTML = `<iframe src="https://view.officeapps.live.com/op/embed.aspx?src=${URL.createObjectURL(file)}" width="100%" height="600px"></iframe>`;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        });
+    </script>
+</body>
+</html>

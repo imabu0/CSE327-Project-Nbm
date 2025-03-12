@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropbox Integration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/4.24.3/antd.min.css">
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg text-center">
+        <h1 class="text-2xl font-bold mb-4">Dropbox Integration</h1>
+        <button id="authBtn" class="bg-blue-500 text-white px-4 py-2 rounded-md">Connect to Dropbox</button>
+
+        <h2 class="text-lg font-semibold mt-6">Upload File to Dropbox</h2>
+        <input type="file" id="fileInput" class="mt-4 p-2 border rounded-lg" />
+        <button id="uploadBtn" class="bg-green-500 text-white px-4 py-2 rounded-md mt-4">Upload</button>
+
+        <h2 class="text-lg font-semibold mt-6">Dropbox Files</h2>
+        <ul id="fileList" class="mt-4 text-left"></ul>
+    </div>
+
+    <script>
+        // Connect to Dropbox
+        document.getElementById("authBtn").addEventListener("click", async () => {
+            const response = await fetch("http://localhost:8000/auth/dropbox");
+            const data = await response.json();
+            window.location.href = data.url;
+        });
+
+        // Fetch files from Dropbox
+        async function fetchFiles() {
+            const response = await fetch("http://localhost:8000/dropbox/files");
+            const files = await response.json();
+            const fileList = document.getElementById("fileList");
+            fileList.innerHTML = files.map(f => `
+                <li class="p-2 border-b flex justify-between items-center">
+                    <span>${f.name}</span>
+                    <div>
+                        <button class="text-blue-500 mr-2" onclick="downloadFile('${f.id}', '${f.name}')">Download</button>
+                        <button class="text-red-500" onclick="deleteFile('${f.id}', '${f.name}')">Delete</button>
+                    </div>
+                </li>
+            `).join("");
+        }
+
+        fetchFiles();
+
+        // Handle file upload to Dropbox
+        document.getElementById("uploadBtn").addEventListener("click", async () => {
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch("http://localhost:8000/dropbox/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert("File uploaded successfully!");
+                fetchFiles();  // Refresh the file list after uploading
+            } else {
+                alert("Error uploading file: " + result.error);
+            }
+        });
+
+        // Handle file download by ID
+        async function downloadFile(fileId, fileName) {
+            const response = await fetch(`http://localhost:8000/dropbox/download?id=${fileId}`);
+            const fileBlob = await response.blob();
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(fileBlob);
+            link.download = fileName;
+            link.click();
+        }
+
+        // Handle file deletion by ID
+        async function deleteFile(fileId, fileName) {
+            const response = await fetch(`http://localhost:8000/dropbox/delete?id=${fileId}`, { method: "DELETE" });
+            const result = await response.json();
+            if (response.ok) {
+                alert(`File "${fileName}" deleted successfully!`);
+                fetchFiles();  // Refresh the file list after deletion
+            } else {
+                alert("Error deleting file: " + result.error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#ED7631", // Custom primary color (orange)
+        primary: "#4d6bfe", // Custom primary color (purple)
         secondary: "#7A7A7A", // Custom secondary color (grey)
         ternary: "#FEFEFE", // Custom tertiary color (light white)
         bg: "#F7F5F4", // Custom success color (white)

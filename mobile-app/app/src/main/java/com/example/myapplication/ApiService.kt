@@ -30,3 +30,4 @@ data class UploadResponse(val success: Boolean, val fileId: FileIdObject)
 data class FileIdObject(val id: Int)
 
 
+

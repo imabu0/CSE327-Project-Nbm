@@ -17,65 +17,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="45c2d437-f088-414f-b4aa-ce9966880c5c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/mobile-app/.idea/render.experimental.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/layout/activity_main.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mobile-app/hs_err_pid12684.log" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mobile-app/replay_pid12684.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/deploymentTargetSelector.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/kotlinc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/migrations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/migrations.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/runConfigurations.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/proguard-rules.pro" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/proguard-rules.pro" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/example/myapplication/ExampleInstrumentedTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/androidTest/java/com/example/myapplication/ExampleInstrumentedTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/myapplication/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/java/com/example/myapplication/MainActivity.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/theme/Color.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/java/com/example/myapplication/ui/theme/Color.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/theme/Theme.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/java/com/example/myapplication/ui/theme/Theme.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/myapplication/ui/theme/Type.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/java/com/example/myapplication/ui/theme/Type.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_background.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/drawable/ic_launcher_background.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_foreground.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/drawable/ic_launcher_foreground.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-hdpi/ic_launcher.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-mdpi/ic_launcher.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xhdpi/ic_launcher.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/values/colors.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/values/strings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/themes.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/values/themes.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/backup_rules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/xml/backup_rules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/data_extraction_rules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/main/res/xml/data_extraction_rules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/test/java/com/example/myapplication/ExampleUnitTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/app/src/test/java/com/example/myapplication/ExampleUnitTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradle.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradle/libs.versions.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradlew" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradlew.bat" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/gradlew.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile-app/META-INF/main.kotlin_module" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile-app/MainKt.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile-app/main.jar" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mobile-app/main.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/settings.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,6 +60,7 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="layoutResourceFile" />
+        <option value="Kotlin File" />
       </list>
     </option>
   </component>
@@ -132,7 +75,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/mdabubokar0/CSE327-Drive.git&quot;,
+    &quot;url&quot;: &quot;https://github.com/mdabubokar0/CSE327-Project-Nbm.git&quot;,
     &quot;accountId&quot;: &quot;d2a78ce1-ed29-453e-affb-72e0d41562ba&quot;
   }
 }</component>
@@ -154,14 +97,15 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "com.google.services.firebase.aqiPopupShown": "true",
     "dart.analysis.tool.window.visible": "false",
     "git-widget-placeholder": "master",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/Asus/AndroidStudioProjects/CSE327-Drive/mobile-app/settings.gradle.kts",
-    "settings.editor.selected.configurable": "editor.preferences.tabs",
+    "last_opened_file_path": "C:/Users/Asus/CSE327-Drive",
+    "settings.editor.selected.configurable": "device.mirroring",
     "show.migrate.to.gradle.popup": "false"
   }
 }]]></component>
@@ -172,7 +116,7 @@
   </component>
   <component name="RunManager" selected="Android App.app">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
-      <module name="app.My_Application.app.main" />
+      <module name="My_Application.app.main" />
       <option name="DEPLOY" value="true" />
       <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
       <option name="DEPLOY_AS_INSTANT" value="false" />

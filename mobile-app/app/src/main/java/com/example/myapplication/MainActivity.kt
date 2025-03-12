@@ -24,20 +24,68 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import android.content.ContentResolver
+import android.database.Cursor
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.ActivityResultLauncher
+import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import retrofit2.*
+import java.io.File
+import java.io.IOException
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.FileOutputStream
+
 
 class MainActivity : ComponentActivity() {
+    private lateinit var filePickerLauncher: ActivityResultLauncher<String>
+    private var selectedFileUri: Uri? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MyApplicationTheme{
-                AppNavigation()
+                AppNavigation(::openFilePicker,::uploadSelectedFile,::getSelectedFileUri)
+            }
+        }
+        TokenManager.init(this)
+        filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            if (uri != null) {
+                Log.d("FilePicker", "Selected file: $uri")
+                selectedFileUri = uri
+
+            }else{
+                Log.e("FilePicker", "NO file was selectedfpl")
             }
         }
     }
+    fun openFilePicker() {
+        filePickerLauncher.launch("*/*")
+
+    }
+    fun uploadSelectedFile(uri: Uri?) {
+        if (uri == null) {
+            Log.e("UPLOAD", "No file selectedusf $uri")
+            return
+        }
+        uploadFile(uri, contentResolver, cacheDir)
+    }
+
+    fun getSelectedFileUri(): Uri? {
+        return selectedFileUri
+    }
+
 }
 
+
 @Composable
-fun AppNavigation() {
+fun AppNavigation(openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit, getSelectedFileUri: () -> Uri?)
+{
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "registration") {
@@ -47,11 +95,151 @@ fun AppNavigation() {
         composable("login") {
             LoginScreen(navController)
         }
+        composable("dashboard"){
+            DashboardScreen(navController, openFilePicker, uploadSelectedFile, getSelectedFileUri)
+        }
     }
+}
+
+private fun uriToFile(uri: Uri, contentResolver: ContentResolver): File {
+    val inputStream = contentResolver.openInputStream(uri) ?: throw IOException("Cannot open input stream")
+    val tempFile = File.createTempFile("upload", ".tmp")
+    inputStream.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
+    return tempFile
+}
+private fun getOriginalFileName(uri: Uri, contentResolver: ContentResolver): String {
+    var name = "uploaded_file" // Default name if extraction fails
+    val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+    cursor?.use {
+        val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (it.moveToFirst() && nameIndex != -1) {
+            name = it.getString(nameIndex)
+        }
+    }
+    return name
+}
+
+private fun copyFileToCache(uri: Uri, contentResolver: ContentResolver, cacheDir: File): File {
+    val originalFileName = getOriginalFileName(uri, contentResolver)
+    val destinationFile = File(cacheDir, originalFileName) // Preserve filename
+
+    contentResolver.openInputStream(uri)?.use { inputStream ->
+        FileOutputStream(destinationFile).use { outputStream ->
+            inputStream.copyTo(outputStream)
+        }
+    } ?: throw IOException("Cannot open input stream")
+
+    return destinationFile
+}
+
+private fun uploadFile(uri: Uri, contentResolver: ContentResolver, cacheDir: File) {
+    val token = TokenManager.token ?: return
+    val file = copyFileToCache(uri, contentResolver, cacheDir)
+
+    // Ensure file exists and is readable
+    if (!file.exists() || !file.canRead()) {
+        Log.e("UPLOAD_ERROR", "File does not exist or is not readable")
+        return
+    }
+
+    val requestBody = file.asRequestBody("multipart/form-data".toMediaTypeOrNull())
+    val filePart = MultipartBody.Part.createFormData("file", file.name, requestBody)
+
+    // Call the corrected API endpoint
+    RetrofitClient.instance.uploadFile("Bearer $token", filePart)
+        .enqueue(object : Callback<UploadResponse> {
+            override fun onResponse(call: Call<UploadResponse>, response: Response<UploadResponse>) {
+                if (response.isSuccessful) {
+                    Log.d("UPLOAD", "File uploaded successfully}")
+                } else {
+                    Log.e("UPLOAD", "Failed: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<UploadResponse>, t: Throwable) {
+                Log.e("UPLOAD_ERROR", "Network or server error: ${t.message}")
+            }
+        })
+}
+
+
+
+
+@Composable
+fun DashboardScreen(
+    navController: NavHostController,
+    openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit,
+    getSelectedFileUri: () -> Uri?
+){
+    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5)),
+        contentAlignment = Alignment.Center
+    ){
+        Column(
+            modifier = Modifier
+                .size(500.dp, 480.dp)
+                .padding(16.dp)
+                .background(Color.White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = { openFilePicker() }, // Only open file picker
+                modifier = Modifier.fillMaxWidth().padding(32.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Select File", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    selectedFileUri = getSelectedFileUri()
+                    if (selectedFileUri != null) {
+                        uploadSelectedFile(selectedFileUri)
+                    } else {
+                        Log.e("UPLOAD", "No file selectedash")
+                    }
+                }, // Now upload only after selection
+                modifier = Modifier.fillMaxWidth().padding(32.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Upload File", color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            if (selectedFileUri != null) {
+                Text(
+                    text = "Selected: ${selectedFileUri.toString()}",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp)
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Browse", color = Color.White)
+            }
+        }
+
+    }
+
 }
 
 @Composable
 fun RegistrationScreen(navController: NavHostController) {
+    var name by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -77,31 +265,32 @@ fun RegistrationScreen(navController: NavHostController) {
                 color = Color.Gray,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-            CustomTextField(placeholder = "Enter username")
+            CustomTextField(value = name, onValueChange = { name = it }, placeholder = "Enter name")
             Spacer(modifier = Modifier.height(8.dp))
-            CustomTextField(placeholder = "Enter email address")
+            CustomTextField(value = username, onValueChange = { username = it }, placeholder = "Enter username")
             Spacer(modifier = Modifier.height(8.dp))
-            CustomTextField(placeholder = "Enter password", isPassword = true)
+            CustomTextField(value = password, onValueChange = { password = it }, placeholder = "Enter password", isPassword = true)
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { /* Handle registration */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+                onClick = {
+                    val request = RegisterRequest(name,username,password,"user")
+                    RetrofitClient.instance.register(request).enqueue(object : Callback<AuthResponse> {
+                        override fun onResponse(call: Call<AuthResponse>, response: Response<AuthResponse>) {
+                            if (response.isSuccessful) {
+                                val token = response.body()?.token
+                                if (token != null) {
+                                    TokenManager.token = token
+                                    navController.navigate("login")
+                                }
+                            }
+                        }
+                        override fun onFailure(call: Call<AuthResponse>, t: Throwable) {
+                            Log.e("REGISTER_ERROR", t.message ?: "Unknown error")
+                        }
+                    })
+                }
             ) {
                 Text(text = "Register", color = Color.White)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = { /* Handle Google registration */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(50.dp)
-            ) {
-                Text(text = "Google", color = Color.Black)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -119,6 +308,8 @@ fun RegistrationScreen(navController: NavHostController) {
 
 @Composable
 fun LoginScreen(navController: NavHostController) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -144,29 +335,41 @@ fun LoginScreen(navController: NavHostController) {
                 color = Color.Gray,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-            CustomTextField(placeholder = "Enter username")
+            CustomTextField(value = username, onValueChange = { username = it }, placeholder = "Enter username")
             Spacer(modifier = Modifier.height(8.dp))
-            CustomTextField(placeholder = "Enter password", isPassword = true)
+            CustomTextField(value = password, onValueChange = { password = it }, placeholder = "Enter password", isPassword = true)
             Spacer(modifier = Modifier.height(16.dp))
+
             Button(
-                onClick = { /* Handle login */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+                onClick = {
+                    if (username.isEmpty() || password.isEmpty()) {
+                        Log.e("LOGIN_ERROR", "Username or password cannot be empty")
+                        return@Button
+                    }
+                    val request = LoginRequest(username, password)
+                    RetrofitClient.instance.login(request).enqueue(object : Callback<AuthResponse> {
+                        override fun onResponse(call: Call<AuthResponse>, response: Response<AuthResponse>) {
+                            if (response.isSuccessful) {
+                                val token = response.body()?.token
+                                if (token != null) {
+                                    TokenManager.token = token
+                                    navController.navigate("dashboard") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                } else {
+                                    Log.e("LOGIN_ERROR", "Token is null")
+                                }
+                            } else {
+                                Log.e("LOGIN_ERROR", "Login failed: ${response.errorBody()?.string()}")
+                            }
+                        }
+                        override fun onFailure(call: Call<AuthResponse>, t: Throwable) {
+                            Log.e("LOGIN_ERROR", t.message ?: "Unknown error")
+                        }
+                    })
+                }
             ) {
                 Text(text = "Login", color = Color.White)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = { /* Handle Google login */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(50.dp)
-            ) {
-                Text(text = "Google", color = Color.Black)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -184,14 +387,14 @@ fun LoginScreen(navController: NavHostController) {
 
 @Composable
 fun CustomTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
     placeholder: String,
     isPassword: Boolean = false
 ) {
-    val textState = remember { mutableStateOf("") }
-
     BasicTextField(
-        value = textState.value,
-        onValueChange = { textState.value = it },
+        value = value,
+        onValueChange = onValueChange,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 32.dp)
@@ -204,7 +407,7 @@ fun CustomTextField(
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                if (textState.value.isEmpty()) {
+                if (value.isEmpty()) {
                     Text(
                         text = placeholder,
                         color = Color.Gray,
@@ -217,3 +420,4 @@ fun CustomTextField(
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None
     )
 }
+

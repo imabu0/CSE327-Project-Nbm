@@ -17,7 +17,62 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="45c2d437-f088-414f-b4aa-ce9966880c5c" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/CSE327-Project-Nbm.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/migrations.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/runConfigurations.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mobile-app/app/settings.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidPluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxActivityLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxComposeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxCoreLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxEspressoLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxLifecycleLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxLifecycleRuntimeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxMaterialLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxNavigationLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxRuntimeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxUiLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxUiTestLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$AndroidxUiToolingLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$BundleAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$KotlinPluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$PluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs$VersionAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibs.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidPluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxActivityLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxComposeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxCoreLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxEspressoLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxLifecycleLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxLifecycleRuntimeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxMaterialLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxNavigationLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxRuntimeLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxUiLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxUiTestLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$AndroidxUiToolingLibraryAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$BundleAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$KotlinPluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$PluginAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock$VersionAccessors.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/classes/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/metadata.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/sources/org/gradle/accessors/dm/LibrariesForLibs.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/dependencies-accessors/110920f44edbaa16f79facf49ce16588cf770a78/sources/org/gradle/accessors/dm/LibrariesForLibsInPluginsBlock.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.gradle/8.9/fileHashes/fileHashes.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/8.9/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.gradle/8.9/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mobile-app/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/mobile-app/.gradle/file-system.probe" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +82,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\Asus\.android\avd\Medium_Phone.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=a17539a20521)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -44,12 +99,7 @@
         </task>
         <projects_view>
           <tree_state>
-            <expand>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="My Application" type="f1a62948:ProjectNode" />
-              </path>
-            </expand>
+            <expand />
             <select />
           </tree_state>
         </projects_view>
@@ -79,6 +129,11 @@
     &quot;accountId&quot;: &quot;d2a78ce1-ed29-453e-affb-72e0d41562ba&quot;
   }
 }</component>
+  <component name="KotlinScriptingSettings">
+    <scriptDefinition className="org.jetbrains.kotlin.scripting.resolve.KotlinScriptDefinitionFromAnnotatedTemplate" definitionName="KotlinSettingsScript">
+      <order>2147483647</order>
+    </scriptDefinition>
+  </component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -92,6 +147,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "Android App.app.executor": "Run",
     "Compose Preview.GreetingPreview.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -104,13 +160,14 @@
     "dart.analysis.tool.window.visible": "false",
     "git-widget-placeholder": "master",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/Asus/CSE327-Drive",
+    "last_opened_file_path": "C:/Users/Asus/CSE327-Project-Nbm/mobile-app/settings.gradle.kts",
     "settings.editor.selected.configurable": "device.mirroring",
     "show.migrate.to.gradle.popup": "false"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Asus\CSE327-Project-Nbm\mobile-app\app" />
       <recent name="C:\Users\Asus\AndroidStudioProjects\CSE327-Drive\mobile-app" />
     </key>
   </component>
@@ -179,9 +236,7 @@
       <option name="ACTIVITY_CLASS" value="" />
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
-      <method v="2">
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
+      <method v="2" />
     </configuration>
     <configuration name="app.androidTest" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="My_Application.app.androidTest" />
@@ -247,9 +302,7 @@
       <option name="ACTIVITY_CLASS" value="" />
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
-      <method v="2">
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
+      <method v="2" />
     </configuration>
     <configuration name="app.main" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="My_Application.app.main" />
@@ -315,9 +368,7 @@
       <option name="ACTIVITY_CLASS" value="" />
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
-      <method v="2">
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
+      <method v="2" />
     </configuration>
     <configuration name="app.unitTest" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="My_Application.app.unitTest" />
@@ -383,9 +434,7 @@
       <option name="ACTIVITY_CLASS" value="" />
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
-      <method v="2">
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
+      <method v="2" />
     </configuration>
     <configuration name="GreetingPreview" type="ComposePreviewRunConfiguration" temporary="true">
       <module name="My_Application.app" />
@@ -452,9 +501,7 @@
       <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="true" />
       <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
       <compose-preview-run-configuration composable-fqn="com.example.myapplication.MainActivityKt.GreetingPreview" />
-      <method v="2">
-        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
-      </method>
+      <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
@@ -463,6 +510,13 @@
     </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="StandaloneScriptsStorage">
+    <option name="files">
+      <set>
+        <option value="$PROJECT_DIR$/mobile-app/app/settings.gradle.kts" />
+      </set>
+    </option>
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="45c2d437-f088-414f-b4aa-ce9966880c5c" name="Changes" comment="" />

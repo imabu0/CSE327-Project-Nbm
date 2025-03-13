@@ -10,28 +10,28 @@ class Bucket {
   }
 
   // Save tokens to PostgreSQL
-  async saveTokens(accessToken, refreshToken, expiryDate) {
+  async saveTokens(accessToken, refreshToken, expiryDate, userId) {
     try {
       await pool.query(
-        `INSERT INTO ${this.tableName} (access_token, refresh_token, expiry_date) 
-         VALUES ($1, $2, $3) 
+        `INSERT INTO ${this.tableName} (access_token, refresh_token, expiry_date, user_id) 
+         VALUES ($1, $2, $3, $4) 
          ON CONFLICT (refresh_token) 
          DO UPDATE SET access_token = EXCLUDED.access_token, expiry_date = EXCLUDED.expiry_date`,
-        [accessToken, refreshToken, expiryDate]
+        [accessToken, refreshToken, expiryDate, userId]
       );
       console.log(`Tokens saved to ${this.tableName}`);
     } catch (error) {
-      console.error(
-        `Error saving tokens to ${this.tableName}:`,
-        error.message
-      );
+      console.error(`Error saving tokens to ${this.tableName}:`, error.message);
     }
   }
 
   // Load tokens from PostgreSQL
-  async loadTokens() {
+  async loadTokens(userId) {
     try {
-      const res = await pool.query(`SELECT * FROM ${this.tableName}`);
+      const res = await pool.query(
+        `SELECT * FROM ${this.tableName} WHERE user_id = $1`,
+        [userId]
+      );
       return res.rows;
     } catch (error) {
       console.error(
@@ -47,12 +47,14 @@ class Bucket {
       const result = await pool.query(`SELECT COUNT(*) FROM ${this.tableName}`);
       return result.rows[0].count;
     } catch (error) {
-      console.error(
-        "Error counting users in google_accounts:",
-        error.message
-      );
+      console.error("Error counting users in google_accounts:", error.message);
       throw error; // Re-throw the error to be handled by the route
     }
+  }
+
+  // Abstract method to refresh token
+  refreshAccessToken(token) {
+    throw new Error("refreshAccessToken() must be implemented in a subclass");
   }
 
   // Abstract method to get the available storage

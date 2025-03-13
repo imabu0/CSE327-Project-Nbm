@@ -36,16 +36,21 @@ function Parent(props) {
   const [isModalVisible, setIsModalVisible] = useState(false); // Modal visibility state
   const [editingFile, setEditingFile] = useState(null); // File being edited
   const [newTitle, setNewTitle] = useState(""); // New title for the file
+  const token = localStorage.getItem("token"); // Get the token from local storage
 
   // Fetch file list from API
   const fetchFiles = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}file/files`); // Fetch all files
+      const response = await axios.get(`${API_URL}file/files`, {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token in the request
+        },
+      });
       setFiles(response.data); // Set all files
       setFilteredFiles(response.data); // Initially, show all files
     } catch (error) {
-      console.error("❌ Error fetching files:", error.message);
+      console.error("Error fetching files:", error.message);
       message.error("Failed to fetch files.");
     } finally {
       setLoading(false);
@@ -82,7 +87,11 @@ function Parent(props) {
     // Make an HTTP request to the backend API with the form data
     try {
       const response = await axios.post(`${API_URL}file/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }, // Set the content type for the request
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        }, // Set the content type for the request
+
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
@@ -95,8 +104,8 @@ function Parent(props) {
       console.log("Upload Response:", response.data);
       fetchFiles(); // Refresh file list
     } catch (error) {
-      console.error("❌ Upload error:", error.response?.data || error.message);
-      message.error("❌ Error uploading file.");
+      console.error("Upload error:", error.response?.data || error.message);
+      message.error("Error uploading file.");
     }
   };
 
@@ -105,7 +114,7 @@ function Parent(props) {
     try {
       const file = files.find((f) => f.id === fileId); // Find the file by ID
       if (!file) {
-        console.error("❌ File not found in state.");
+        console.error("File not found in state.");
         return;
       }
 
@@ -125,7 +134,7 @@ function Parent(props) {
 
       console.log("File downloaded successfully!");
     } catch (error) {
-      console.error("❌ Error downloading file:", error.message);
+      console.error("Error downloading file:", error.message);
     }
   };
 
@@ -145,7 +154,7 @@ function Parent(props) {
         fetchFiles(); // Refresh file list
       }
     } catch (error) {
-      console.error("❌ Error deleting file:", error.message);
+      console.error("Error deleting file:", error.message);
       setError("Failed to delete file.");
       message.error("Failed to delete file.");
     } finally {
@@ -260,7 +269,7 @@ function Parent(props) {
         handleCancel(); // Close the modal
       }
     } catch (error) {
-      console.error("❌ Error updating title:", error.message);
+      console.error("Error updating title:", error.message);
       message.error("Failed to update title");
     }
   };
@@ -386,7 +395,6 @@ function Parent(props) {
               </Spin>
             </div>
           </div>
-          <div className="w-[300px] bg-ternary p-3 rounded-sm">Image</div>
         </div>
       </div>
     </div>

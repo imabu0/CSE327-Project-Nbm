@@ -55,6 +55,43 @@ class GoogleBucket extends Bucket {
     }
   }
 
+  // NEW: Method to refresh the access token
+  async refreshAccessToken(token) {
+    try {
+      this.oauth2Client.setCredentials({
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        expiry_date: token.expiry_date,
+      });
+
+      const { credentials } = await this.oauth2Client.refreshAccessToken();
+      const newAccessToken = credentials.access_token;
+      const newExpiryDate = credentials.expiry_date;
+
+      // Update the token with the new access token and expiry date
+      token.access_token = newAccessToken;
+      token.expiry_date = newExpiryDate;
+
+      // Save the updated token
+      await this.saveTokens(newAccessToken, token.refresh_token, newExpiryDate);
+
+      console.log("Refreshed access token.");
+      return token;
+    } catch (error) {
+      console.error("Error refreshing access token:", error.message);
+      throw new Error("Failed to refresh access token.");
+    }
+  }
+
+  // NEW: Method to ensure the token is valid
+  async ensureValidToken(token) {
+    if (token.expiry_date && token.expiry_date < Date.now() + 60000) { // Refresh if the token expires in less than 1 minute
+      console.log("Access token is about to expire. Refreshing...");
+      return await this.refreshAccessToken(token);
+    }
+    return token;
+  }
+
   // Method to get available storage for each connected Google Drive account
   async getAvailableStorage() {
     const storedTokens = await this.loadTokens();
@@ -63,10 +100,12 @@ class GoogleBucket extends Bucket {
     // Use for-of loop to get available storage for each token
     for (const token of storedTokens) {
       try {
+        const validToken = await this.ensureValidToken(token); // Ensure token is valid
+
         this.oauth2Client.setCredentials({
-          access_token: token.access_token,
-          refresh_token: token.refresh_token,
-          expiry_date: token.expiry_date,
+          access_token: validToken.access_token,
+          refresh_token: validToken.refresh_token,
+          expiry_date: validToken.expiry_date,
         });
 
         const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
@@ -107,9 +146,11 @@ class GoogleBucket extends Bucket {
 
       for (const token of storedTokens) {
         try {
+          const validToken = await this.ensureValidToken(token); // Ensure token is valid
+
           // Log the token partially for debugging
           console.log(
-            `Trying Google Drive account with token: ${token.access_token.slice(
+            `Trying Google Drive account with token: ${validToken.access_token.slice(
               0,
               10
             )}...`
@@ -117,9 +158,9 @@ class GoogleBucket extends Bucket {
 
           // Ensure correct credentials are used
           this.oauth2Client.setCredentials({
-            access_token: token.access_token,
-            refresh_token: token.refresh_token,
-            expiry_date: token.expiry_date,
+            access_token: validToken.access_token,
+            refresh_token: validToken.refresh_token,
+            expiry_date: validToken.expiry_date,
           });
 
           const drive = google.drive({
@@ -154,7 +195,7 @@ class GoogleBucket extends Bucket {
 
           // Log the token partially for debugging
           console.log(
-            ` - Uploaded ${fileName} to Google Drive using token ${token.access_token.slice(
+            ` - Uploaded ${fileName} to Google Drive using token ${validToken.access_token.slice(
               0,
               10
             )}.`
@@ -203,16 +244,18 @@ class GoogleBucket extends Bucket {
 
       let files = [];
       for (const token of storedTokens) {
-        // Properly set OAuth credentials
-        this.oauth2Client.setCredentials({
-          access_token: token.access_token,
-          refresh_token: token.refresh_token,
-          expiry_date: token.expiry_date,
-        });
-
-        const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
-
         try {
+          const validToken = await this.ensureValidToken(token); // Ensure token is valid
+
+          // Properly set OAuth credentials
+          this.oauth2Client.setCredentials({
+            access_token: validToken.access_token,
+            refresh_token: validToken.refresh_token,
+            expiry_date: validToken.expiry_date,
+          });
+
+          const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
+
           const response = await drive.files.list({
             q: `'${folderId}' in parents and trashed = false`, // Search for files in the folder
             fields: "files(id, name, mimeType)", // Return only necessary fields
@@ -241,23 +284,18 @@ class GoogleBucket extends Bucket {
 
     // Try each token until the file is found
     for (const token of storedTokens) {
-      // Properly set OAuth credentials
       try {
+        const validToken = await this.ensureValidToken(token); // Ensure token is valid
+
+        // Properly set OAuth credentials
         this.oauth2Client.setCredentials({
-          access_token: token.access_token,
-          refresh_token: token.refresh_token,
-          expiry_date: token.expiry_date,
+          access_token: validToken.access_token,
+          refresh_token: validToken.refresh_token,
+          expiry_date: validToken.expiry_date,
         });
 
-        // Check if the token is expired and refresh it if necessary
-        if (this.oauth2Client.isTokenExpiring()) {
-          const { credentials } = await this.oauth2Client.refreshAccessToken(); // Refresh token
-          this.oauth2Client.setCredentials(credentials); // Set new credentials
-          console.log("Refreshed access token.");
-        }
-
         console.log(`Attempting to download file with ID: ${fileId}`);
-        console.log(`Using token: ${token.access_token.slice(0, 10)}...`); // Log token partially for debugging
+        console.log(`Using token: ${validToken.access_token.slice(0, 10)}...`); // Log token partially for debugging
 
         const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
 
@@ -311,23 +349,18 @@ class GoogleBucket extends Bucket {
 
     // Try each token until the file is found and deleted
     for (const token of storedTokens) {
-      // Properly set OAuth credentials
       try {
+        const validToken = await this.ensureValidToken(token); // Ensure token is valid
+
+        // Properly set OAuth credentials
         this.oauth2Client.setCredentials({
-          access_token: token.access_token,
-          refresh_token: token.refresh_token,
-          expiry_date: token.expiry_date,
+          access_token: validToken.access_token,
+          refresh_token: validToken.refresh_token,
+          expiry_date: validToken.expiry_date,
         });
 
-        // Check if the token is expired and refresh it if necessary
-        if (this.oauth2Client.isTokenExpiring()) {
-          const { credentials } = await this.oauth2Client.refreshAccessToken(); // Refresh token
-          this.oauth2Client.setCredentials(credentials); // Set new credentials
-          console.log("Refreshed access token.");
-        }
-
         console.log(`Attempting to delete file with ID: ${fileId}`);
-        console.log(`Using token: ${token.access_token.slice(0, 10)}...`);
+        console.log(`Using token: ${validToken.access_token.slice(0, 10)}...`);
 
         const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
 

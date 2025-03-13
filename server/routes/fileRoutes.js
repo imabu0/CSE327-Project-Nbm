@@ -5,20 +5,24 @@ const { pool } = require("../config/db.js");
 const router = express.Router(); // Create a new router instance
 const fileOp = new FileOp(); // Create an instance of the FileOp class
 const upload = multer({ dest: "uploads/" }); // Temporary folder for uploaded files
+const protectRoute = require("../middlewares/authMiddleware.js");
 
 // Upload route
-router.post("/upload", upload.single("file"), async (req, res) => { 
+router.post("/upload", protectRoute, upload.single("file"), async (req, res) => { 
   console.log("Uploaded File:", req.file);
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded "});
   }
   
   try {
+    const userId = req.user.id; // Extract the user_id from the request
+
     // Correct call to upFile()
     const fileId = await fileOp.upFile(
       req.file.path,
       req.file.originalname,
-      req.file.size
+      req.file.size,
+      userId
     );
     res.json({ success: true, fileId });
   } catch (error) {
@@ -27,12 +31,17 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// GET API to fetch all files
-router.get("/files", async (req, res) => {
+// GET API to fetch all files for a specific user
+router.get("/files", protectRoute, async (req, res) => {
   try {
+    const userId = req.user.id; // Extract the user_id from the request
+
+    // Query to fetch files for the specific user
     const result = await pool.query(
-      "SELECT * FROM file_info ORDER BY created_at ASC"
-    ); // Query to fetch all files
+      "SELECT * FROM file_info WHERE user_id = $1 ORDER BY created_at ASC",
+      [userId] // Pass the user_id as a parameter
+    );
+
     res.json(result.rows); // Send the fetched data as JSON
   } catch (error) {
     console.error("Error fetching files:", error.message);

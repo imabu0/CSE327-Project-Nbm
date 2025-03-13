@@ -1,35 +1,38 @@
--- create user_info table
+-- Create user_info table
 CREATE TABLE user_info (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   username VARCHAR(255) UNIQUE NOT NULL,
-  password varchar(255) NOT NULL,
-  role varchar(255) NOT NULL
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(255) NOT NULL
 );
 
--- store linked google account info
+-- Store linked Google account info with a foreign key to user_info
 CREATE TABLE google_accounts (
   id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES user_info(id) ON DELETE CASCADE, -- Foreign key to user_info
   access_token TEXT NOT NULL,
   refresh_token TEXT NOT NULL UNIQUE,
   expiry_date BIGINT NOT NULL
 );
 
--- store linked dropbox account info
+-- Store linked Dropbox account info with a foreign key to user_info
 CREATE TABLE dropbox_accounts (
-  id SERIAL PRIMARY KEY,               -- Unique identifier for each record
-  access_token VARCHAR(5000) NOT NULL,  -- Column to store the access token
-  refresh_token VARCHAR(5000) UNIQUE NOT NULL, -- Column to store the refresh token, must be unique
-	expiry_date VARCHAR(5000)
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES user_info(id) ON DELETE CASCADE, -- Foreign key to user_info
+  access_token VARCHAR(5000) NOT NULL,
+  refresh_token VARCHAR(5000) UNIQUE NOT NULL,
+  expiry_date VARCHAR(5000)
 );
 
--- Table to store file metadata
+-- Table to store file metadata with a foreign key to user_info
 CREATE TABLE file_info (
-    id SERIAL PRIMARY KEY,          -- Unique identifier for the file
-    title VARCHAR(255) NOT NULL,    -- Name of the file (e.g., "my_document")
-    fileExtension VARCHAR(50),      -- File extension (e.g., "pdf", "jpg")
-    size BIGINT NOT NULL,           -- Size of the file in bytes
-    created_at DATE DEFAULT CURRENT_DATE -- Store only the date (year, month, day)
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES user_info(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  fileExtension VARCHAR(50),
+  size BIGINT NOT NULL,
+  created_at DATE DEFAULT CURRENT_DATE
 );
 
 -- Table to store chunk IDs associated with each file

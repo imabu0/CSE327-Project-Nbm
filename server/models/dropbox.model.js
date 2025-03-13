@@ -30,7 +30,17 @@ class DropboxBucket extends Bucket {
     );
   }
 
-  // Method to get available storage for each connected Dropbox account
+  // Method to refresh the access token
+  async refreshAccessToken(token) {
+    const response = await axios.post(
+      "https://api.dropbox.com/oauth2/token",
+      `grant_type=refresh_token&refresh_token=${token}&client_id=${this.clientId}&client_secret=${this.clientSecret}`,
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+
+    return response.data; // Return the new access token and refresh token
+  }
+
   async getAvailableStorage() {
     const storedTokens = await this.loadTokens();
     if (!storedTokens.length) return []; // Always return an array
@@ -41,11 +51,11 @@ class DropboxBucket extends Bucket {
       try {
         const response = await axios.post(
           "https://api.dropboxapi.com/2/users/get_space_usage",
-          null, // Send null (not {})
+          null,
           {
             headers: {
               Authorization: `Bearer ${token.access_token}`,
-              "Content-Type": "application/json", // Correct Content-Type
+              "Content-Type": "application/json",
             },
           }
         );
@@ -55,28 +65,48 @@ class DropboxBucket extends Bucket {
 
         availableStorage.push({ available, token: token.access_token });
       } catch (error) {
-        console.error(
-          "Error fetching Dropbox storage:",
-          error.response?.data || error.message
-        );
+        if (error.response && error.response.status === 401) {
+          // Token expired, try to refresh
+          const newTokens = await this.refreshAccessToken(token.refresh_token);
+          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          // Retry the request with the new access token
+          const retryResponse = await axios.post(
+            "https://api.dropboxapi.com/2/users/get_space_usage",
+            null,
+            {
+              headers: {
+                Authorization: `Bearer ${newTokens.access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          const { allocation, used } = retryResponse.data;
+          const available = allocation.allocated - used;
+
+          availableStorage.push({ available, token: newTokens.access_token });
+        } else {
+          console.error(
+            "Error fetching Dropbox storage:",
+            error.response?.data || error.message
+          );
+        }
       }
     }
 
     return availableStorage; // Always return an array
   }
 
-  // Method to download a file from Dropbox
   async listFiles() {
     const storedTokens = await this.loadTokens();
     if (!storedTokens.length) return [];
 
-    // Array to store all files from all Dropbox accounts
     let allFiles = [];
     for (const token of storedTokens) {
       try {
         const response = await axios.post(
           "https://api.dropboxapi.com/2/files/list_folder",
-          { path: "" }, // List files in the root directory
+          { path: "" },
           {
             headers: {
               Authorization: `Bearer ${token.access_token}`,
@@ -84,15 +114,30 @@ class DropboxBucket extends Bucket {
             },
           }
         );
-        allFiles.push(...response.data.entries); // Add files to the array
+        allFiles.push(...response.data.entries);
       } catch (error) {
-        console.error("Dropbox Error:", error.message);
+        if (error.response && error.response.status === 401) {
+          const newTokens = await this.refreshAccessToken(token.refresh_token);
+          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          const retryResponse = await axios.post(
+            "https://api.dropboxapi.com/2/files/list_folder",
+            { path: "" },
+            {
+              headers: {
+                Authorization: `Bearer ${newTokens.access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          allFiles.push(...retryResponse.data.entries);
+        } else {
+          console.error("Dropbox Error:", error.message);
+        }
       }
     }
     return allFiles;
   }
 
-  // Method to upload a file to Dropbox
   async uploadFile(filePath, fileName, token) {
     try {
       if (!filePath || !fileName) {
@@ -117,7 +162,7 @@ class DropboxBucket extends Bucket {
           headers: {
             Authorization: `Bearer ${token}`,
             "Dropbox-API-Arg": JSON.stringify({
-              path: `/${fileName}`, // Use a temporary path for upload
+              path: `/${fileName}`,
               mode: "add",
               autorename: true,
               mute: false,
@@ -139,7 +184,6 @@ class DropboxBucket extends Bucket {
     }
   }
 
-  // Method to download a file from Dropbox
   async downloadFile(fileId, destinationPath) {
     const storedTokens = await this.loadTokens();
 
@@ -149,16 +193,14 @@ class DropboxBucket extends Bucket {
 
     let lastError = null;
 
-    // Try each token until the file is found
     for (const token of storedTokens) {
       try {
         console.log(`Attempting to download file with ID: ${fileId}`);
         console.log(`Using token: ${token.access_token.slice(0, 10)}...`);
 
-        // Step 1: Get a temporary download link
         const tempLinkResponse = await axios.post(
           "https://api.dropboxapi.com/2/files/get_temporary_link",
-          { path: fileId }, // Use the file ID as the path
+          { path: fileId },
           {
             headers: {
               Authorization: `Bearer ${token.access_token}`,
@@ -166,11 +208,10 @@ class DropboxBucket extends Bucket {
             },
           }
         );
-        
-        const tempLink = tempLinkResponse.data.link; // Generate a temporary download link
+
+        const tempLink = tempLinkResponse.data.link;
         console.log(`Retrieved temporary download link: ${tempLink}`);
 
-        // Step 2: Download the file using the temporary link
         const response = await axios.get(tempLink, { responseType: "stream" });
 
         const writer = fs.createWriteStream(destinationPath);
@@ -182,8 +223,37 @@ class DropboxBucket extends Bucket {
         });
 
         console.log(`Downloaded file ${fileId} from Dropbox.`);
-        return; // Exit the loop if the file is successfully downloaded
+        return;
       } catch (error) {
+        if (error.response && error.response.status === 401) {
+          const newTokens = await this.refreshAccessToken(token.refresh_token);
+          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          // Retry the download with the new access token
+          const tempLinkResponse = await axios.post(
+            "https://api.dropboxapi.com/2/files/get_temporary_link",
+            { path: fileId },
+            {
+              headers: {
+                Authorization: `Bearer ${newTokens.access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          const tempLink = tempLinkResponse.data.link;
+          const response = await axios.get(tempLink, { responseType: "stream" });
+
+          const writer = fs.createWriteStream(destinationPath);
+          response.data.pipe(writer);
+
+          await new Promise((resolve, reject) => {
+            writer.on("finish", resolve);
+            writer.on("error", reject);
+          });
+
+          console.log(`Downloaded file ${fileId} from Dropbox.`);
+          return;
+        }
         lastError = error;
         console.error(
           "Dropbox API Error:",
@@ -195,19 +265,17 @@ class DropboxBucket extends Bucket {
       }
     }
 
-    // If no account has the file, throw the last error
     throw new Error(
       `File ${fileId} not found in any Dropbox account. Last error: ${lastError?.message}`
     );
   }
 
-  // Method to get the file path from a file ID
   async getFilePathFromFileId(fileId, token) {
     try {
       const response = await axios.post(
         "https://api.dropboxapi.com/2/files/get_metadata",
         {
-          path: fileId, // Use the file ID as the path
+          path: fileId,
         },
         {
           headers: {
@@ -217,7 +285,7 @@ class DropboxBucket extends Bucket {
         }
       );
 
-      const filePath = response.data.path_display; // Get the file path
+      const filePath = response.data.path_display;
       console.log(`Retrieved file path for file ID ${fileId}: ${filePath}`);
       return filePath;
     } catch (error) {
@@ -229,7 +297,6 @@ class DropboxBucket extends Bucket {
     }
   }
 
-  // Method to delete a file from Dropbox
   async deleteFile(fileId) {
     const storedTokens = await this.loadTokens();
 
@@ -239,7 +306,6 @@ class DropboxBucket extends Bucket {
 
     let lastError = null;
 
-    // Try each token until the file is found and deleted
     for (const token of storedTokens) {
       try {
         console.log(`Attempting to delete file with ID: ${fileId}`);
@@ -247,7 +313,7 @@ class DropboxBucket extends Bucket {
 
         await axios.post(
           "https://api.dropboxapi.com/2/files/delete_v2",
-          { path: fileId }, // Use the file ID as the path
+          { path: fileId },
           {
             headers: {
               Authorization: `Bearer ${token.access_token}`,
@@ -257,8 +323,26 @@ class DropboxBucket extends Bucket {
         );
 
         console.log(`Deleted file ${fileId} from Dropbox.`);
-        return; // Exit the loop if the file is successfully deleted
+        return;
       } catch (error) {
+        if (error.response && error.response.status === 401) {
+          const newTokens = await this.refreshAccessToken(token.refresh_token);
+          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          // Retry the delete with the new access token
+          await axios.post(
+            "https://api.dropboxapi.com/2/files/delete_v2",
+            { path: fileId },
+            {
+              headers: {
+                Authorization: `Bearer ${newTokens.access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          console.log(`Deleted file ${fileId} from Dropbox.`);
+          return;
+        }
         lastError = error;
         console.warn(
           `File ${fileId} not found in this Dropbox account. Trying next account...`
@@ -266,7 +350,6 @@ class DropboxBucket extends Bucket {
       }
     }
 
-    // If no account has the file, throw the last error
     throw new Error(
       `File ${fileId} not found in any Dropbox account. Last error: ${lastError?.message}`
     );

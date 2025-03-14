@@ -42,9 +42,9 @@ class Bucket {
     }
   }
 
-  async countBuckets() {
+  async countBuckets(userId) {
     try {
-      const result = await pool.query(`SELECT COUNT(*) FROM ${this.tableName}`);
+      const result = await pool.query(`SELECT COUNT(*) FROM ${this.tableName} WHERE user_id = $1`, [userId]);
       return result.rows[0].count;
     } catch (error) {
       console.error("Error counting users in google_accounts:", error.message);

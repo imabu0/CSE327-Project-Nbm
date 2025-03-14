@@ -184,7 +184,7 @@ class DropboxBucket extends Bucket {
     }
   }
 
-  async downloadFile(fileId, destinationPath) {
+  async downloadFile(fileId, destinationPath, userId) {
     const storedTokens = await this.loadTokens(userId);
 
     if (!storedTokens.length) {

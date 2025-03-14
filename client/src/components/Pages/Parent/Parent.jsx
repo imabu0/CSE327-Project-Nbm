@@ -120,10 +120,10 @@ function Parent(props) {
 
       const response = await axios.get(
         `http://localhost:8000/file/download/${fileId}`, // Download the file by ID
-        { responseType: "blob" }, // Set the response type to blob
         {
+          responseType: "blob",
           headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the request
+            Authorization: `Bearer ${token}`,
           },
         }
       );

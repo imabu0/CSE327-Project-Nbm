@@ -11,27 +11,44 @@ export const Dashboard = () => {
   const [googleBucketCount, setGoogleBucketCount] = useState(null); // Bucket count from the backend
   const [dropboxBucketCount, setDropboxBucketCount] = useState(null); // Bucket count from the backend
   const [space, setSpace] = useState(null); // Available space (in GB) from the backend
-  const [userCount, setUserCount] = useState(null); // User count from the backend
   const [error, setError] = useState(null); // Error message if there's an issue fetching data
   const [loading, setLoading] = useState(true); // Loading state for showing loading message
+  const token = localStorage.getItem("token");
 
   // Function to fetch all necessary counts from the backend
   const fetchCounts = async () => {
     try {
       // Fetch google bucket count
       const googleBucket = await axios.get(
-        "http://localhost:8000/google/buckets"
+        "http://localhost:8000/google/buckets",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       setGoogleBucketCount(googleBucket.data.count); // Store the fetched google bucket count
 
       // Fetch google bucket count
       const dropboxBucket = await axios.get(
-        "http://localhost:8000/dropbox/buckets"
+        "http://localhost:8000/dropbox/buckets",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       setDropboxBucketCount(dropboxBucket.data.count); // Store the fetched dropbox bucket count
 
       // Fetch available storage space
-      const spaceResponse = await axios.get("http://localhost:8000/file/space");
+      const spaceResponse = await axios.get(
+        "http://localhost:8000/file/space",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       // Calculate total available space (in bytes) for google drives
       const googleSpace = spaceResponse.data.google.reduce(
@@ -53,10 +70,6 @@ export const Dashboard = () => {
 
       // Store the fetched available space
       setSpace(totalAvailableSpaceGB);
-
-      // Fetch user count
-      const userResponse = await axios.get("http://localhost:8000/api/users");
-      setUserCount(userResponse.data.count); // Store the fetched user count
 
       // Set loading to false after all data is fetched
       setLoading(false);
@@ -88,7 +101,7 @@ export const Dashboard = () => {
       <div className="w-full px-3">
         <div className="mt-3 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <Avatar /> 
+          <Avatar />
         </div>
 
         {loading && ( // Loading state
@@ -128,15 +141,6 @@ export const Dashboard = () => {
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
                   Gigabyte {/* Label for storage */}
-                </p>
-              </div>
-              {/* User Count Card */}
-              <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
-                <h3 className="text-2xl font-medium text-center text-gray-700">
-                  {userCount - 1} {/* Display user count */}
-                </h3>
-                <p className="text-xl font-medium text-center text-gray-800">
-                  Users {/* Label for user count */}
                 </p>
               </div>
             </div>

@@ -138,7 +138,7 @@ router.get("/search", async (req, res) => {
 });
 
 // Route to get available storage
-router.get("/space", async (req, res) => {
+router.get("/space", protectRoute, async (req, res) => {
   try {
     const userId = req.user.id; // Extract the user_id from the request
     const storage = await fileOp.getAvailableStorage(userId); // Get available storage from the cloud provider

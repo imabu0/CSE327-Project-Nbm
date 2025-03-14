@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import os
 import PyPDF2  # For PDF files
+from PIL import Image  # For image processing
 
 # Replace with your bot token
 BOT_TOKEN = "7737845213:AAGy_oQGP4S6AzRFTjlIx-MubBYtpspiRt0"
@@ -29,6 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/search <file_type> <keyword> - Search for specific file types (e.g., /search txt hello)\n"
         "/date <YYYY-MM-DD> - Search for files modified on a specific date\n"
         "/size <>=< <size_in_bytes> - Search for files by size (e.g., /size > 1000000)\n"
+        "/image <keyword> - Search for images by keyword\n"
     )
 
 # Command to show help
@@ -46,6 +48,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/search <file_type> <keyword> - Search for specific file types (e.g., /search txt hello)\n"
         "/date <YYYY-MM-DD> - Search for files modified on a specific date\n"
         "/size <>=< <size_in_bytes> - Search for files by size (e.g., /size > 1000000)\n"
+        "/image <keyword> - Search for images by keyword\n"
     )
 
 # Function to search inside text files
@@ -62,6 +65,28 @@ def search_in_pdf_file(file_path, keyword):
             if keyword.lower() in page.extract_text().lower():
                 return True
     return False
+
+# Function to search for images by keyword
+async def search_images(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if not is_authorized(user_id):
+        await update.message.reply_text("You are not authorized to use this bot.")
+        return
+
+    search_query = update.message.text
+    found_images = []
+    for root, dirs, files in os.walk("."):  # Search in the current directory
+        for file in files:
+            file_path = os.path.join(root, file)
+            if file.lower().endswith((".png", ".jpg", ".jpeg", ".gif")) and search_query.lower() in file.lower():
+                found_images.append(file_path)
+
+    if found_images:
+        for image_path in found_images:
+            with open(image_path, "rb") as image:
+                await update.message.reply_photo(photo=image)
+    else:
+        await update.message.reply_text(f"No images found for '{search_query}'.")
 
 # Function to handle file search
 async def search_files(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -202,6 +227,7 @@ def main():
     application.add_handler(CommandHandler("date", search_by_date))
     application.add_handler(CommandHandler("size", search_by_size))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_files))
+    application.add_handler(CommandHandler("image", search_images))
 
     # Confirmation message
     print("Bot is running! Press Ctrl+C to stop.")
@@ -211,4 +237,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-   

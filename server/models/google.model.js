@@ -93,8 +93,8 @@ class GoogleBucket extends Bucket {
   }
 
   // Method to get available storage for each connected Google Drive account
-  async getAvailableStorage() {
-    const storedTokens = await this.loadTokens();
+  async getAvailableStorage(userId) {
+    const storedTokens = await this.loadTokens(userId);
     let storageInfo = [];
 
     // Use for-of loop to get available storage for each token
@@ -127,7 +127,7 @@ class GoogleBucket extends Bucket {
   }
 
   // Method to upload a file to Google Drive
-  async uploadFile(filePath, fileName, mimeType = "application/octet-stream") {
+  async uploadFile(filePath, fileName, mimeType = "application/octet-stream", userId) {
     try {
       if (!filePath || !fileName) {
         throw new Error("Invalid file path or name");
@@ -137,7 +137,7 @@ class GoogleBucket extends Bucket {
         throw new Error(`File not found: ${filePath}`);
       }
 
-      const storedTokens = await this.loadTokens(); // Load all available tokens
+      const storedTokens = await this.loadTokens(userId); // Load all available tokens
       if (!storedTokens.length) {
         throw new Error("No Google accounts available.");
       }
@@ -273,8 +273,8 @@ class GoogleBucket extends Bucket {
   }
 
   // Method to download a file from Google Drive
-  async downloadFile(fileId, destinationPath) {
-    const storedTokens = await this.loadTokens(); // Load all available tokens
+  async downloadFile(fileId, destinationPath, userId) {
+    const storedTokens = await this.loadTokens(userId); // Load all available tokens
 
     if (!storedTokens.length) {
       throw new Error("No Google tokens available.");
@@ -338,8 +338,8 @@ class GoogleBucket extends Bucket {
   }
 
   // Method to delete a file from Google Drive
-  async deleteFile(fileId) {
-    const storedTokens = await this.loadTokens(); // Load all available tokens
+  async deleteFile(fileId, userId) {
+    const storedTokens = await this.loadTokens(userId); // Load all available tokens
 
     if (!storedTokens.length) {
       throw new Error("No Google tokens available.");

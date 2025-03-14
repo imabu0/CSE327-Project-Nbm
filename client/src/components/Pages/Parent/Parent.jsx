@@ -120,7 +120,12 @@ function Parent(props) {
 
       const response = await axios.get(
         `http://localhost:8000/file/download/${fileId}`, // Download the file by ID
-        { responseType: "blob" } // Set the response type to blob
+        { responseType: "blob" }, // Set the response type to blob
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the request
+          },
+        }
       );
 
       // Create a download link for the file
@@ -146,7 +151,12 @@ function Parent(props) {
 
     try {
       const response = await axios.delete(
-        `http://localhost:8000/file/delete/${fileId}` // Delete the file by ID
+        `http://localhost:8000/file/delete/${fileId}`, // Delete the file by ID
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the request
+          },
+        }
       );
       if (response.status === 200) {
         setSuccess("File deleted successfully!");

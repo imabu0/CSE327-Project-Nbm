@@ -10,9 +10,9 @@ class FileOp {
     this.dropboxBucket = new DropboxBucket(); // Instantiate DropboxBucket
   }
 
-  async getAvailableStorage() {
-    const googleStorage = await this.googleBucket.getAvailableStorage(); // Get Google Drive storage
-    const dropboxStorage = await this.dropboxBucket.getAvailableStorage(); // Get Dropbox storage
+  async getAvailableStorage(userId) {
+    const googleStorage = await this.googleBucket.getAvailableStorage(userId); // Get Google Drive storage
+    const dropboxStorage = await this.dropboxBucket.getAvailableStorage(userId); // Get Dropbox storage
 
     return {
       google: Array.isArray(googleStorage) ? googleStorage : [], // Ensure it's an array
@@ -24,7 +24,7 @@ class FileOp {
     const client = await pool.connect(); // Get a client from the pool
 
     try {
-      const storage = await this.getAvailableStorage(); // Get available storage
+      const storage = await this.getAvailableStorage(userId); // Get available storage
       const allBuckets = [
         ...storage.google.map((bucket) => ({ ...bucket, type: "google" })),
         ...storage.dropbox.map((bucket) => ({ ...bucket, type: "dropbox" })),
@@ -60,14 +60,16 @@ class FileOp {
           partId = await this.googleBucket.uploadFile(
             filePath,
             fileName,
-            bucket.token
+            bucket.token,
+            userId
           );
         } else if (bucket.type === "dropbox") {
           console.log(`Uploading file to Dropbox...`);
           partId = await this.dropboxBucket.uploadFile(
             filePath,
             fileName,
-            bucket.token
+            bucket.token,
+            userId
           );
         }
 
@@ -117,14 +119,16 @@ class FileOp {
           partId = await this.googleBucket.uploadFile(
             chunkPath,
             `${fileName}`,
-            bucket.token
+            bucket.token,
+            userId
           );
         } else if (bucket.type === "dropbox") {
           console.log(` - Uploading chunk ${chunkIndex} to Dropbox...`);
           partId = await this.dropboxBucket.uploadFile(
             chunkPath,
             `${fileName}`,
-            bucket.token
+            bucket.token,
+            userId
           );
         }
 
@@ -154,7 +158,7 @@ class FileOp {
   }
 
   // Method to download and merge chunks into a single file
-  async downloadAndMergeChunks(fileId, res) {
+  async downloadAndMergeChunks(fileId, res, userId) {
     const client = await pool.connect(); // Get a client from the pool
 
     try {
@@ -199,19 +203,19 @@ class FileOp {
         try {
           if (type === "google") {
             try {
-              await this.googleBucket.downloadFile(chunk_id, chunkPath); // Download from Google Drive
+              await this.googleBucket.downloadFile(chunk_id, chunkPath, userId); // Download from Google Drive
             } catch (error) {
               if (error.message === "FILE_NOT_FOUND_IN_GOOGLE_DRIVE") {
                 console.warn(
                   `⚠️ Chunk ${chunk_id} not found in Google Drive. Checking Dropbox...`
                 );
-                await this.dropboxBucket.downloadFile(chunk_id, chunkPath); // If not found in the Google drive then try Dropbox
+                await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // If not found in the Google drive then try Dropbox
               } else {
                 throw error; // Re-throw other errors
               }
             }
           } else if (type === "dropbox") {
-            await this.dropboxBucket.downloadFile(chunk_id, chunkPath); // Download from Dropbox
+            await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // Download from Dropbox
           } else {
             throw new Error(`Unsupported storage type: ${type}`);
           }
@@ -255,7 +259,7 @@ class FileOp {
   }
 
   // Method to delete chunks and metadata from the database and cloud storage
-  async deleteChunks(fileId) {
+  async deleteChunks(fileId, userId) {
     const client = await pool.connect(); // Get a client from the pool
 
     try {
@@ -277,24 +281,24 @@ class FileOp {
         try {
           if (type === "google") {
             try {
-              await this.googleBucket.deleteFile(chunk_id); // Delete from Google Drive
+              await this.googleBucket.deleteFile(chunk_id, userId); // Delete from Google Drive
             } catch (error) {
               if (error.message === "FILE_NOT_FOUND_IN_GOOGLE_DRIVE") {
                 console.warn(
                   `⚠️ Chunk ${chunk_id} not found in Google Drive. Checking Dropbox...`
                 );
-                await this.dropboxBucket.deleteFile(chunk_id); // If not found in the Google drive then try Dropbox
+                await this.dropboxBucket.deleteFile(chunk_id, userId); // If not found in the Google drive then try Dropbox
               } else {
                 throw error; // Re-throw other errors
               }
             }
           } else if (type === "dropbox") {
-            await this.dropboxBucket.deleteFile(chunk_id); // Delete from Dropbox
+            await this.dropboxBucket.deleteFile(chunk_id, userId); // Delete from Dropbox
           } else {
             throw new Error(`Unsupported storage type: ${type}`);
           }
         } catch (error) {
-          console.error(`Error deleting chunk ${chunk_id}:`, error.message);
+          console.error(`Error deleting chunk ${chunk_id, userId}:`, error.message);
           throw error;
         }
       }

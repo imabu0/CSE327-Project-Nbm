@@ -41,8 +41,8 @@ class DropboxBucket extends Bucket {
     return response.data; // Return the new access token and refresh token
   }
 
-  async getAvailableStorage() {
-    const storedTokens = await this.loadTokens();
+  async getAvailableStorage(userId) {
+    const storedTokens = await this.loadTokens(userId);
     if (!storedTokens.length) return []; // Always return an array
 
     let availableStorage = [];
@@ -98,7 +98,7 @@ class DropboxBucket extends Bucket {
   }
 
   async listFiles() {
-    const storedTokens = await this.loadTokens();
+    const storedTokens = await this.loadTokens(userId);
     if (!storedTokens.length) return [];
 
     let allFiles = [];
@@ -185,7 +185,7 @@ class DropboxBucket extends Bucket {
   }
 
   async downloadFile(fileId, destinationPath) {
-    const storedTokens = await this.loadTokens();
+    const storedTokens = await this.loadTokens(userId);
 
     if (!storedTokens.length) {
       throw new Error("No Dropbox tokens available.");
@@ -297,8 +297,8 @@ class DropboxBucket extends Bucket {
     }
   }
 
-  async deleteFile(fileId) {
-    const storedTokens = await this.loadTokens();
+  async deleteFile(fileId, userId) {
+    const storedTokens = await this.loadTokens(userId);
 
     if (!storedTokens.length) {
       throw new Error("No Dropbox tokens available.");

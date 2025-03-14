@@ -50,7 +50,7 @@ router.get("/files", protectRoute, async (req, res) => {
 });
 
 // GET API to download a file
-router.get("/download/:fileId", async (req, res) => {
+router.get("/download/:fileId", protectRoute, async (req, res) => {
   const { fileId } = req.params; // Get the file ID from the URL
 
   if (!fileId) {
@@ -58,7 +58,8 @@ router.get("/download/:fileId", async (req, res) => {
   }
 
   try {
-    await fileOp.downloadAndMergeChunks(fileId, res); // Download and merge the file chunks
+    const userId = req.user.id; // Extract the user_id from the request
+    await fileOp.downloadAndMergeChunks(fileId, res, userId); // Download and merge the file chunks
   } catch (error) {
     console.error("Download route error:", error.message);
     res.status(500).json({ error: "Download failed." });
@@ -66,7 +67,7 @@ router.get("/download/:fileId", async (req, res) => {
 });
 
 // DELETE API to delete a file and its chunks
-router.delete("/delete/:fileId", async (req, res) => {
+router.delete("/delete/:fileId", protectRoute, async (req, res) => {
   const { fileId } = req.params; // Get the file ID from the URL
 
   if (!fileId) {
@@ -74,7 +75,8 @@ router.delete("/delete/:fileId", async (req, res) => {
   }
 
   try {
-    await fileOp.deleteChunks(fileId); // Delete the file chunks
+    const userId = req.user.id; // Extract the user_id from the request
+    await fileOp.deleteChunks(fileId, userId); // Delete the file chunks
     res.json({
       success: true,
       message: "File and chunks deleted successfully.",
@@ -138,7 +140,8 @@ router.get("/search", async (req, res) => {
 // Route to get available storage
 router.get("/space", async (req, res) => {
   try {
-    const storage = await fileOp.getAvailableStorage(); // Get available storage from the cloud provider
+    const userId = req.user.id; // Extract the user_id from the request
+    const storage = await fileOp.getAvailableStorage(userId); // Get available storage from the cloud provider
     res.status(200).json(storage);
   } catch (error) {
     console.error("Error fetching available storage:", error.message);

@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios'); // For making HTTP requests
-const fs = require('fs'); // For handling file uploads
-const FormData = require('form-data'); // For creating multipart/form-data requests
+const axios = require('axios');
+const fs = require('fs');
+const FormData = require('form-data');
 require('dotenv').config();
 
 // Replace with your bot token from BotFather
@@ -12,6 +12,11 @@ const bot = new TelegramBot(token, { polling: true });
 
 // In-memory storage for tokens (chatId -> token)
 const userTokens = {};
+
+// Ensure the uploads directory exists
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads');
+}
 
 // Handle /start command
 bot.onText(/\/start/, (msg) => {
@@ -89,8 +94,8 @@ bot.onText(/\/files/, async (msg) => {
 
     const fileList = files
       .map(
-        (file) =>
-          `📄 ${file.title}.${file.fileextension} (${formatFileSize(file.size)})`
+        (file, i) =>
+          `${i+1}. ${file.title} (${formatFileSize(file.size)})`
       )
       .join('\n');
 
@@ -135,15 +140,25 @@ bot.on('document', async (msg) => {
     // Get the file ID and file information
     const fileId = msg.document.file_id;
     const fileName = msg.document.file_name;
-    const fileSize = msg.document.file_size;
 
-    // Download the file from Telegram
-    const fileStream = bot.getFileStream(fileId);
-    const filePath = `./uploads/${fileName}`;
+    // Get the file path from Telegram
+    const fileInfo = await bot.getFile(fileId);
+    const filePath = fileInfo.file_path;
+
+    // Construct the download URL
+    const downloadUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+
+    // Download the file using axios
+    const response = await axios({
+      url: downloadUrl,
+      method: 'GET',
+      responseType: 'stream',
+    });
 
     // Save the file locally
-    const writeStream = fs.createWriteStream(filePath);
-    fileStream.pipe(writeStream);
+    const filePathLocal = `./uploads/${fileName}`;
+    const writeStream = fs.createWriteStream(filePathLocal);
+    response.data.pipe(writeStream);
 
     // Wait for the file to finish downloading
     await new Promise((resolve, reject) => {
@@ -153,10 +168,10 @@ bot.on('document', async (msg) => {
 
     // Prepare the file for upload to your API
     const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath), fileName);
+    formData.append('file', fs.createReadStream(filePathLocal), fileName);
 
     // Make a POST request to the /upload endpoint with the token
-    const response = await axios.post(`${process.env.API_URL}/file/upload`, formData, {
+    const uploadResponse = await axios.post(`${process.env.API_URL}/file/upload`, formData, {
       headers: {
         ...formData.getHeaders(),
         Authorization: `Bearer ${token}`,
@@ -164,10 +179,10 @@ bot.on('document', async (msg) => {
     });
 
     // Send the upload result back to the user
-    bot.sendMessage(chatId, `File uploaded successfully! File ID: ${response.data.fileId}`);
+    bot.sendMessage(chatId, `File uploaded successfully!`);
 
     // Delete the local file after upload
-    fs.unlinkSync(filePath);
+    fs.unlinkSync(filePathLocal);
   } catch (error) {
     console.error('Upload Error:', error.response?.data || error.message);
 
@@ -195,10 +210,15 @@ function formatFileSize(size) {
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
 
-  // Check if the message is not a command
-  if (!msg.text.startsWith('/')) {
+  // Check if the message has text and is not a command
+  if (msg.text && !msg.text.startsWith('/')) {
     bot.sendMessage(chatId, 'I don’t understand that command. Use /start to begin.');
   }
+});
+
+// Handle polling errors
+bot.on('polling_error', (error) => {
+  console.error('Polling Error:', error);
 });
 
 console.log('Bot is running...');

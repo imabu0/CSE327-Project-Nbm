@@ -1,8 +1,10 @@
-const { registerUser, loginUser, generateOTP, verifyOTP } = require("./models/auth.model.js");
+const { registerUser, loginUser, generateOTP, verifyOTP, getUserOtp } = require("./models/auth.model.js");
+const authRoutes = require("./routes/authRoutes.js");
 const userRoutes = require("./routes/userRoutes.js");
 const googleRoutes = require("./routes/googleRoutes.js");
 const dropboxRoutes = require("./routes/dropboxRoutes.js");
 const fileRoutes = require("./routes/fileRoutes.js");
+const protectRoute = require("./middlewares/authMiddleware.js");
 
 // **Express Routes**
 const express = require("express");
@@ -26,6 +28,7 @@ app.post("/api/register", registerUser); // **Route for Registration**
 app.post("/api/login", loginUser); // **Route for Login**
 app.post("/api/generateOTP", generateOTP); // **Route for Login**
 app.post("/api/verifyOTP", verifyOTP); // **Route for Login**
+app.post("/api/otp", protectRoute, getUserOtp); // **Route for OTP**
 app.use("/api", userRoutes); // **User Info**
 app.use("/google", googleRoutes); // **Google Routes**
 app.use("/dropbox", dropboxRoutes); // **Dropbox Routes**

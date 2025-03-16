@@ -1,10 +1,10 @@
-const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
-const fs = require('fs');
-const FormData = require('form-data');
-require('dotenv').config();
+const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
+const fs = require("fs");
+const FormData = require("form-data");
+require("dotenv").config();
 
-// Replace with your bot token from BotFather
+// Bot token from BotFather
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 // Create a bot instance
@@ -14,8 +14,8 @@ const bot = new TelegramBot(token, { polling: true });
 const userTokens = {};
 
 // Ensure the uploads directory exists
-if (!fs.existsSync('./uploads')) {
-  fs.mkdirSync('./uploads');
+if (!fs.existsSync("./uploads")) {
+  fs.mkdirSync("./uploads");
 }
 
 // Handle /start command
@@ -23,36 +23,42 @@ bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(
     chatId,
-    'Welcome! Use the following commands:\n\n' +
-      '/generate username to generate OTP for usern\n' +
-      '/verify username otp to verify login' +
-      '/files - Fetch your files\n' +
-      '/upload - Upload a file'
+    "Welcome! Use the following commands:\n\n" +
+      "/login username to login\n" +
+      "/verify username otp to verify yourself\n" +
+      "/files - Fetch your files\n" +
+      "/upload - Upload a file"
   );
 });
 
 // Handle /login command
-bot.onText(/\/generate\s*(.+)/, async (msg, match) => {
+bot.onText(/\/login\s*(.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const username = match[1]?.trim(); // Extract username correctly and remove extra spaces
 
   console.log("Extracted username:", username); // Debugging line
 
   try {
-    const response = await axios.post(`${process.env.API_URL}/api/generateOTP`, {
-      username,
-    });
+    const response = await axios.post(
+      `${process.env.API_URL}/api/generateOTP`,
+      {
+        username,
+      }
+    );
 
     const { otp } = response.data;
 
-    bot.sendMessage(chatId, `OTP Generated!\n\nOTP: ${otp}`);
+    bot.sendMessage(
+      chatId,
+      `OTP sent please verify using /verify ${username} your_otp`
+    );
   } catch (error) {
-    console.error('OTP Error', error.response?.data || error.message);
+    console.error("OTP Error", error.response?.data || error.message);
 
     if (error.response?.data?.error) {
       bot.sendMessage(chatId, `OTP failed: ${error.response.data.error}`);
     } else {
-      bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
     }
   }
 });
@@ -74,22 +80,20 @@ bot.onText(/\/verify (\S+) (\S+)/, async (msg, match) => {
     userTokens[chatId] = token;
 
     // Send success message to the user
-    bot.sendMessage(
-      chatId,
-      'Success'
+    bot.sendMessage(chatId, "Success");
+  } catch (error) {
+    console.error(
+      "OTP Verification Error:",
+      error.response?.data || error.message
     );
 
-  } catch (error) {
-    console.error("OTP Verification Error:", error.response?.data || error.message);
-
     // Handle API error response
-    const errorMsg = error.response?.data?.error || "An error occurred. Please try again later.";
-    bot.sendMessage(chatId, `❌ OTP verification failed: ${errorMsg}`);
+    const errorMsg =
+      error.response?.data?.error ||
+      "An error occurred. Please try again later.";
+    bot.sendMessage(chatId, `OTP verification failed: ${errorMsg}`);
   }
 });
-
-
-
 
 // Handle /files command
 bot.onText(/\/files/, async (msg) => {
@@ -98,7 +102,10 @@ bot.onText(/\/files/, async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(chatId, 'You need to auth first. Use /generate username');
+    return bot.sendMessage(
+      chatId,
+      "You need to first /login username"
+    );
   }
 
   try {
@@ -114,25 +121,27 @@ bot.onText(/\/files/, async (msg) => {
 
     // Format the files for display
     if (files.length === 0) {
-      return bot.sendMessage(chatId, 'No files found.');
+      return bot.sendMessage(chatId, "No files found.");
     }
 
     const fileList = files
       .map(
-        (file, i) =>
-          `${i+1}. ${file.title} (${formatFileSize(file.size)})`
+        (file, i) => `${i + 1}. ${file.title} (${formatFileSize(file.size)})`
       )
-      .join('\n');
+      .join("\n");
 
     bot.sendMessage(chatId, `Your files:\n\n${fileList}`);
   } catch (error) {
-    console.error('Files Error:', error.response?.data || error.message);
+    console.error("Files Error:", error.response?.data || error.message);
 
     // Handle specific error messages from the API
     if (error.response?.data?.error) {
-      bot.sendMessage(chatId, `Failed to fetch files: ${error.response.data.error}`);
+      bot.sendMessage(
+        chatId,
+        `Failed to fetch files: ${error.response.data.error}`
+      );
     } else {
-      bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
     }
   }
 });
@@ -144,21 +153,27 @@ bot.onText(/\/upload/, async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(chatId, 'You need to log in first. Use /login username password');
+    return bot.sendMessage(
+      chatId,
+      "You need to first /login username"
+    );
   }
 
   // Ask the user to send a file
-  bot.sendMessage(chatId, 'Please send a file to upload.');
+  bot.sendMessage(chatId, "Please send a file to upload.");
 });
 
 // Handle file uploads
-bot.on('document', async (msg) => {
+bot.on("document", async (msg) => {
   const chatId = msg.chat.id;
 
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(chatId, 'You need to log in first. Use /login username password');
+    return bot.sendMessage(
+      chatId,
+      "You need to first /login username"
+    );
   }
 
   try {
@@ -176,8 +191,8 @@ bot.on('document', async (msg) => {
     // Download the file using axios
     const response = await axios({
       url: downloadUrl,
-      method: 'GET',
-      responseType: 'stream',
+      method: "GET",
+      responseType: "stream",
     });
 
     // Save the file locally
@@ -187,21 +202,25 @@ bot.on('document', async (msg) => {
 
     // Wait for the file to finish downloading
     await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
     });
 
     // Prepare the file for upload to your API
     const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePathLocal), fileName);
+    formData.append("file", fs.createReadStream(filePathLocal), fileName);
 
     // Make a POST request to the /upload endpoint with the token
-    const uploadResponse = await axios.post(`${process.env.API_URL}/file/upload`, formData, {
-      headers: {
-        ...formData.getHeaders(),
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const uploadResponse = await axios.post(
+      `${process.env.API_URL}/file/upload`,
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     // Send the upload result back to the user
     bot.sendMessage(chatId, `File uploaded successfully!`);
@@ -209,13 +228,13 @@ bot.on('document', async (msg) => {
     // Delete the local file after upload
     fs.unlinkSync(filePathLocal);
   } catch (error) {
-    console.error('Upload Error:', error.response?.data || error.message);
+    console.error("Upload Error:", error.response?.data || error.message);
 
     // Handle specific error messages from the API
     if (error.response?.data?.error) {
       bot.sendMessage(chatId, `Upload failed: ${error.response.data.error}`);
     } else {
-      bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
     }
   }
 });
@@ -232,18 +251,21 @@ function formatFileSize(size) {
 }
 
 // Handle unknown commands or messages
-bot.on('message', (msg) => {
+bot.on("message", (msg) => {
   const chatId = msg.chat.id;
 
   // Check if the message has text and is not a command
-  if (msg.text && !msg.text.startsWith('/')) {
-    bot.sendMessage(chatId, 'I don’t understand that command. Use /start to begin.');
+  if (msg.text && !msg.text.startsWith("/")) {
+    bot.sendMessage(
+      chatId,
+      "I don’t understand that command. Use /start to begin."
+    );
   }
 });
 
 // Handle polling errors
-bot.on('polling_error', (error) => {
-  console.error('Polling Error:', error);
+bot.on("polling_error", (error) => {
+  console.error("Polling Error:", error);
 });
 
-console.log('Bot is running...');
+console.log("Bot is running...");

@@ -1,24 +1,71 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios"; // Import axios for making HTTP requests
-import { Sidebar } from "../../Sidebar/Sidebar"; // Import Sidebar component
-import { Progress } from "antd"; // Import progress from antd
-import { Avatar } from "../../Profile/Avatar"; // Import avatar component
-import { Spin } from "antd"; // Import spin component from antd
-import { LoadingOutlined } from "@ant-design/icons"; // Import to customize the spin component from antd
+import axios from "axios";
+import { Sidebar } from "../../Sidebar/Sidebar";
+import { Progress, Button, Modal } from "antd";
+import { Avatar } from "../../Profile/Avatar";
+import { Spin } from "antd";
+import { LoadingOutlined } from "@ant-design/icons";
+import { useLocation, useNavigate } from "react-router-dom"; // Import useNavigate
 
 export const Dashboard = () => {
-  // State for holding various data
-  const [googleBucketCount, setGoogleBucketCount] = useState(null); // Bucket count from the backend
-  const [dropboxBucketCount, setDropboxBucketCount] = useState(null); // Bucket count from the backend
-  const [space, setSpace] = useState(null); // Available space (in GB) from the backend
-  const [error, setError] = useState(null); // Error message if there's an issue fetching data
-  const [loading, setLoading] = useState(true); // Loading state for showing loading message
+  const [googleBucketCount, setGoogleBucketCount] = useState(null);
+  const [dropboxBucketCount, setDropboxBucketCount] = useState(null);
+  const [space, setSpace] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("token");
+  const [otp, setOtp] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isOtpButtonDisabled, setIsOtpButtonDisabled] = useState(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false); // State for success modal
+  const [isDropboxModalOpen, setIsDropboxModalOpen] = useState(false); // State for success modal
+
+  const location = useLocation(); // Get the current location
+  const navigate = useNavigate(); // Use navigate to clear query parameters
+
+  // Check for the success query parameter on component mount
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    if (queryParams.get("linked") === "google") {
+      setIsGoogleModalOpen(true); // Open success modal
+    } else if (queryParams.get("linked") === "dropbox") {
+      setIsDropboxModalOpen(true); // Open success modal
+    }
+  }, [location]);
+
+  // Function to handle the "OK" button click in the success modal
+  const handleSuccessModalOk = (bucket) => {
+    let api =
+      bucket === "google"
+        ? "http://localhost:8000/google/set"
+        : "http://localhost:8000/dropbox/set";
+    // Make a PUT request to update the user
+    axios
+      .put(
+        api,
+        {}, // Request body (empty object if no data is being sent)
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      .then(() => {
+        setIsGoogleModalOpen(false); // Close the modal
+        setIsDropboxModalOpen(false); // Close the modal
+        navigate("/dashboard", { replace: true }); // Clear the query parameter
+        window.location.reload(); // Refresh the page after navigation
+      })
+      .catch((error) => {
+        console.error("Error updating user:", error);
+        // Optionally, show an error message to the user
+        alert("Failed to update user. Please try again.");
+      });
+  };
 
   // Function to fetch all necessary counts from the backend
   const fetchCounts = async () => {
     try {
-      // Fetch google bucket count
       const googleBucket = await axios.get(
         "http://localhost:8000/google/buckets",
         {
@@ -27,9 +74,8 @@ export const Dashboard = () => {
           },
         }
       );
-      setGoogleBucketCount(googleBucket.data.count); // Store the fetched google bucket count
+      setGoogleBucketCount(googleBucket.data.count);
 
-      // Fetch google bucket count
       const dropboxBucket = await axios.get(
         "http://localhost:8000/dropbox/buckets",
         {
@@ -38,9 +84,8 @@ export const Dashboard = () => {
           },
         }
       );
-      setDropboxBucketCount(dropboxBucket.data.count); // Store the fetched dropbox bucket count
+      setDropboxBucketCount(dropboxBucket.data.count);
 
-      // Fetch available storage space
       const spaceResponse = await axios.get(
         "http://localhost:8000/file/space",
         {
@@ -50,44 +95,53 @@ export const Dashboard = () => {
         }
       );
 
-      // Calculate total available space (in bytes) for google drives
       const googleSpace = spaceResponse.data.google.reduce(
         (total, bucket) => total + bucket.available,
         0
       );
-      // Calculate total available space (in bytes) for dropbox
       const dropboxSpace = spaceResponse.data.dropbox.reduce(
         (total, bucket) => total + bucket.available,
         0
       );
-      const totalAvailableSpace = googleSpace + dropboxSpace; // Total available space
-
-      // Convert bytes to GB
       const totalAvailableSpaceGB = (
-        totalAvailableSpace /
+        (googleSpace + dropboxSpace) /
         (1024 * 1024 * 1024)
       ).toFixed(2);
 
-      // Store the fetched available space
       setSpace(totalAvailableSpaceGB);
-
-      // Set loading to false after all data is fetched
       setLoading(false);
     } catch (err) {
-      // Handle any errors that occur during data fetching
       setError("Error fetching data");
       console.error(err);
-      setLoading(false); // Stop loading if there's an error
+      setLoading(false);
     }
   };
 
-  // Fetch data on component mount
   useEffect(() => {
     fetchCounts();
-  }, []); // Empty dependency array means this runs only once when the component mounts
+  }, []);
+
+  const fetchOtp = async () => {
+    try {
+      setIsOtpButtonDisabled(true);
+
+      const response = await axios.post(
+        "http://localhost:8000/api/otp",
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setOtp(response.data.otp);
+      setIsModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching OTP:", error);
+    }
+  };
 
   const customIcon = (
-    <LoadingOutlined style={{ fontSize: 40, color: "#4d6bfe" }} spin /> // The spin size and color
+    <LoadingOutlined style={{ fontSize: 40, color: "#4d6bfe" }} spin />
   );
 
   return (
@@ -101,14 +155,24 @@ export const Dashboard = () => {
       <div className="w-full px-3">
         <div className="mt-3 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <Avatar />
+          <div className="flex items-center gap-1">
+            <Button
+              onClick={fetchOtp}
+              disabled={isOtpButtonDisabled}
+              className="h-10"
+            >
+              Get OTP
+            </Button>
+            <Avatar />
+          </div>
         </div>
 
-        {loading && ( // Loading state
+        {loading && (
           <div className="flex justify-center">
             <Spin size="large" indicator={customIcon} />
           </div>
         )}
+
         {!loading && (
           <div>
             {/* Flexbox layout for displaying the cards */}
@@ -116,31 +180,30 @@ export const Dashboard = () => {
               {/* Google Bucket Count Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
-                  {googleBucketCount} {/* Display bucket count */}
+                  {googleBucketCount}
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
-                  Google {/* Label for bucket count */}
+                  Google
                 </p>
               </div>
 
               {/* Dropbox Bucket Count Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
-                  {dropboxBucketCount} {/* Display bucket count */}
+                  {dropboxBucketCount}
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
-                  Dropbox {/* Label for bucket count */}
+                  Dropbox
                 </p>
               </div>
 
               {/* Storage Card */}
               <div className="w-full h-[150px] bg-white rounded-lg flex flex-col items-center justify-center transition-transform transform hover:scale-105">
                 <h3 className="text-2xl font-medium text-center text-gray-700">
-                  {/* Display available space */}
                   {googleBucketCount * 15 + dropboxBucketCount * 2}
                 </h3>
                 <p className="text-xl font-medium text-center text-gray-800">
-                  Gigabyte {/* Label for storage */}
+                  Gigabyte
                 </p>
               </div>
             </div>
@@ -181,6 +244,63 @@ export const Dashboard = () => {
           </div>
         )}
       </div>
+
+      {/* OTP Modal */}
+      <Modal
+        title="Your OTP"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={null}
+      >
+        <div className="flex flex-col items-center">
+          <h2 className="text-2xl font-semibold text-blue-500">{otp}</h2>
+          <p className="text-gray-600 mt-2">
+            This OTP will expire in 1 minutes
+          </p>
+        </div>
+      </Modal>
+
+      {/* Google Success Modal */}
+      <Modal
+        open={isGoogleModalOpen}
+        onOk={handleSuccessModalOk}
+        closable={false}
+        footer={[
+          <Button
+            key="ok"
+            type="primary"
+            className="bg-primary"
+            onClick={() => handleSuccessModalOk("google")}
+          >
+            OK
+          </Button>,
+        ]}
+      >
+        <p className="text-center text-xl">
+          Google Bucket linked successfully!
+        </p>
+      </Modal>
+
+      {/* Dropbox Success Modal */}
+      <Modal
+        open={isDropboxModalOpen}
+        onOk={handleSuccessModalOk}
+        closable={false}
+        footer={[
+          <Button
+            key="ok"
+            type="primary"
+            className="bg-primary"
+            onClick={() => handleSuccessModalOk("dropbox")}
+          >
+            OK
+          </Button>,
+        ]}
+      >
+        <p className="text-center text-xl my-10">
+          Dropbox Bucket linked successfully!
+        </p>
+      </Modal>
     </div>
   );
 };

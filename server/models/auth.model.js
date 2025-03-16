@@ -1,11 +1,11 @@
-const { pool } = require("../config/db.js")
+const { pool } = require("../config/db.js");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt"); // Import bcrypt for password hashing
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
 // Register User
-const registerUser  = async (req, res) => {
+const registerUser = async (req, res) => {
   try {
     const { name, username, password, role } = req.body;
 
@@ -18,13 +18,13 @@ const registerUser  = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new user into the database
-    const newUser  = await pool.query(
+    const newUser = await pool.query(
       "INSERT INTO user_info (name, username, password, role) VALUES ($1, $2, $3, $4) RETURNING *",
       [name, username, hashedPassword, role]
     );
 
     // Generate JWT token
-    const token = jwt.sign({ id: newUser .rows[0].id, username }, SECRET_KEY, {
+    const token = jwt.sign({ id: newUser.rows[0].id, username }, SECRET_KEY, {
       expiresIn: "1h", // Token expires in 1 hour
     });
 
@@ -32,7 +32,7 @@ const registerUser  = async (req, res) => {
     res.status(201).json({
       message: "User  registered successfully",
       token,
-      user: newUser .rows[0],
+      user: newUser.rows[0],
     });
   } catch (error) {
     console.error("Registration Error:", error);
@@ -41,7 +41,7 @@ const registerUser  = async (req, res) => {
 };
 
 // Login User
-const loginUser  = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -51,9 +51,10 @@ const loginUser  = async (req, res) => {
     }
 
     // Retrieve user from the database
-    const user = await pool.query("SELECT * FROM user_info WHERE username = $1", [
-      username,
-    ]);
+    const user = await pool.query(
+      "SELECT * FROM user_info WHERE username = $1",
+      [username]
+    );
 
     // Check if user exists
     if (user.rows.length === 0) {
@@ -85,6 +86,7 @@ const loginUser  = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 const generateOTP = async (req, res) => {
   try {
     const { username } = req.body;
@@ -96,16 +98,19 @@ const generateOTP = async (req, res) => {
 
     console.log(username + " Hello");
     // Check if user exists
-    const user = await pool.query("SELECT * FROM user_info WHERE username = $1", [username]);
+    const user = await pool.query(
+      "SELECT * FROM user_info WHERE username = $1",
+      [username]
+    );
     if (user.rows.length === 0) {
-      return res.status(404).json({ error: "User not found"  });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Set OTP expiration to 1 minute from now
-    const expiresAt = new Date(Date.now() + 1 * 60 * 1000); // Changed from 10 minutes to 1 minute
+    const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
 
     // Store OTP in database
     await pool.query(
@@ -117,14 +122,14 @@ const generateOTP = async (req, res) => {
     res.status(200).json({
       message: "OTP generated successfully",
       otp: otp, // Remove in production
-      expiresAt: expiresAt
+      expiresAt: expiresAt,
     });
-
   } catch (error) {
     console.error("OTP Generation Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 const verifyOTP = async (req, res) => {
   try {
     const { username, otp } = req.body;
@@ -135,7 +140,10 @@ const verifyOTP = async (req, res) => {
     }
 
     // Get user
-    const user = await pool.query("SELECT * FROM user_info WHERE username = $1", [username]);
+    const user = await pool.query(
+      "SELECT * FROM user_info WHERE username = $1",
+      [username]
+    );
     if (user.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -163,7 +171,9 @@ const verifyOTP = async (req, res) => {
     });
 
     // Delete the OTP after successful verification
-    await pool.query("DELETE FROM user_otps WHERE user_id = $1", [user.rows[0].id]);
+    await pool.query("DELETE FROM user_otps WHERE user_id = $1", [
+      user.rows[0].id,
+    ]);
 
     // Respond with success message and token (similar to login response)
     res.status(200).json({
@@ -172,14 +182,36 @@ const verifyOTP = async (req, res) => {
       role,
       user: user.rows[0],
     });
-
   } catch (error) {
     console.error("OTP Verification Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
+const getUserOtp = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming authentication middleware attaches user ID to req
 
+    // Fetch the OTP for the given user
+    const otpRecord = await pool.query(
+      "SELECT otp, expires_at FROM user_otps WHERE user_id = $1",
+      [userId]
+    );
+
+    if (otpRecord.rows.length === 0) {
+      return res.status(404).json({ error: "No OTP found for this user" });
+    }
+
+    res.status(200).json({
+      message: "OTP retrieved successfully",
+      otp: otpRecord.rows[0].otp,
+      expiresAt: otpRecord.rows[0].expires_at,
+    });
+  } catch (error) {
+    console.error("Get OTP Error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 // Export the functions for use in other modules
-module.exports = { registerUser , loginUser , generateOTP, verifyOTP};
+module.exports = { registerUser, loginUser, generateOTP, verifyOTP, getUserOtp };

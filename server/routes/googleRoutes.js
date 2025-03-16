@@ -9,7 +9,7 @@ router.get("/authorize", (req, res) => res.redirect(google.getAuthUrl()));
 router.get("/oauth2callback", async (req, res) => {
   try {
     await google.handleCallback(req.query.code);
-    res.redirect("http://localhost:5173/dashboard");
+    res.redirect("http://localhost:5173/dashboard?linked=google"); // Add success query parameter
   } catch (error) {
     console.error("Google OAuth Error:", error.message);
     res.status(500).send("Authentication failed.");
@@ -36,6 +36,23 @@ router.get("/buckets", protectRoute, async (req, res) => {
     console.error("Error counting buckets:", error.message);
 
     // Send a 500 Internal Server Error response if an error occurs
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.put("/set", protectRoute, async (req, res) => {
+  try {
+    const user_id = req.user.id; // Extract user_id from the JWT
+
+    // Call the model method to update rows with user_id = null
+    const updatedRows = await google.setUser(user_id);
+
+    res.status(200).json({
+      message: "Updated rows successfully",
+      updatedRows,
+    });
+  } catch (error) {
+    console.error("Error updating:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

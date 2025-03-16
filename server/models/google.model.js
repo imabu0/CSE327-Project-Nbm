@@ -2,6 +2,7 @@ const Bucket = require("./bucket.model.js");
 const { google } = require("googleapis");
 const fs = require("fs");
 const path = require("path");
+const { pool } = require("../config/db.js");
 
 class GoogleBucket extends Bucket {
   constructor() {
@@ -382,6 +383,17 @@ class GoogleBucket extends Bucket {
 
     // If no account has the file, throw a specific error
     throw new Error("FILE_NOT_FOUND_IN_GOOGLE_DRIVE");
+  }
+
+  async setUser(user_id) {
+    const query = `
+      UPDATE google_accounts
+      SET user_id = $1
+      WHERE user_id IS NULL
+      RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [user_id]);
+    return rows;
   }
 }
 

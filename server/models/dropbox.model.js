@@ -1,6 +1,7 @@
 const Bucket = require("./bucket.model.js");
 const axios = require("axios");
 const fs = require("fs");
+const { pool } = require("../config/db.js");
 
 class DropboxBucket extends Bucket {
   constructor() {
@@ -353,6 +354,17 @@ class DropboxBucket extends Bucket {
     throw new Error(
       `File ${fileId} not found in any Dropbox account. Last error: ${lastError?.message}`
     );
+  }
+
+  async setUser(user_id) {
+    const query = `
+      UPDATE dropbox_accounts
+      SET user_id = $1
+      WHERE user_id IS NULL
+      RETURNING *;
+    `;
+    const { rows } = await pool.query(query, [user_id]);
+    return rows;
   }
 }
 

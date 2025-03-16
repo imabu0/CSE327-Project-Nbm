@@ -31,15 +31,23 @@ import android.provider.OpenableColumns
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
 import android.util.Log
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.text.font.FontWeight
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import retrofit2.*
 import java.io.File
 import java.io.IOException
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.ResponseBody
 import java.io.FileOutputStream
 
 
@@ -50,7 +58,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MyApplicationTheme{
-                AppNavigation(::openFilePicker,::uploadSelectedFile,::getSelectedFileUri)
+                AppNavigation(
+                    ::openFilePicker,
+                    ::uploadSelectedFile,
+                    ::getSelectedFileUri
+                )
             }
         }
         TokenManager.init(this)
@@ -60,7 +72,7 @@ class MainActivity : ComponentActivity() {
                 selectedFileUri = uri
 
             }else{
-                Log.e("FilePicker", "NO file was selectedfpl")
+                Log.e("FilePicker", "NO file was selected")
             }
         }
     }
@@ -70,7 +82,7 @@ class MainActivity : ComponentActivity() {
     }
     fun uploadSelectedFile(uri: Uri?) {
         if (uri == null) {
-            Log.e("UPLOAD", "No file selectedusf $uri")
+            Log.e("UPLOAD", "No file selected")
             return
         }
         uploadFile(uri, contentResolver, cacheDir)
@@ -84,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun AppNavigation(openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit, getSelectedFileUri: () -> Uri?)
+fun AppNavigation(openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit, getSelectedFileUri: () -> Uri?)              // Fetch files from backend
 {
     val navController = rememberNavController()
 
@@ -101,12 +113,6 @@ fun AppNavigation(openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit
     }
 }
 
-private fun uriToFile(uri: Uri, contentResolver: ContentResolver): File {
-    val inputStream = contentResolver.openInputStream(uri) ?: throw IOException("Cannot open input stream")
-    val tempFile = File.createTempFile("upload", ".tmp")
-    inputStream.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-    return tempFile
-}
 private fun getOriginalFileName(uri: Uri, contentResolver: ContentResolver): String {
     var name = "uploaded_file" // Default name if extraction fails
     val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
@@ -152,7 +158,7 @@ private fun uploadFile(uri: Uri, contentResolver: ContentResolver, cacheDir: Fil
                 if (response.isSuccessful) {
                     Log.d("UPLOAD", "File uploaded successfully}")
                 } else {
-                    Log.e("UPLOAD", "Failed: ${response.errorBody()?.string()}")
+                    Log.e("UPLOAD", "Failed-1: $token ${response.errorBody()?.string()}")
                 }
             }
 
@@ -163,9 +169,7 @@ private fun uploadFile(uri: Uri, contentResolver: ContentResolver, cacheDir: Fil
 }
 
 
-
-
-@Composable
+/*@Composable
 fun DashboardScreen(
     navController: NavHostController,
     openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit,
@@ -201,7 +205,7 @@ fun DashboardScreen(
                     if (selectedFileUri != null) {
                         uploadSelectedFile(selectedFileUri)
                     } else {
-                        Log.e("UPLOAD", "No file selectedash")
+                        Log.e("UPLOAD", "No file selected")
                     }
                 }, // Now upload only after selection
                 modifier = Modifier.fillMaxWidth().padding(32.dp).height(50.dp),
@@ -234,6 +238,161 @@ fun DashboardScreen(
     }
 
 }
+
+ */
+
+private fun fetchFiles(updateFiles: (List<FileInfo>) -> Unit) {
+    val token = TokenManager.token ?: return
+
+    RetrofitClient.instance.fetchFiles("Bearer $token")
+        .enqueue(object : Callback<List<FileInfo>> {
+            override fun onResponse(call: Call<List<FileInfo>>, response: Response<List<FileInfo>>) {
+                if (response.isSuccessful) {
+                    response.body()?.let { fileList ->
+                        updateFiles(fileList)
+                    }
+                } else {
+                    Log.e("FETCH_FILES", "Failed to fetch files: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<List<FileInfo>>, t: Throwable) {
+                Log.e("FETCH_FILES_ERROR", "Network or server error: ${t.message}")
+            }
+        })
+}
+
+
+
+private fun deleteFile(fileId: String) {
+    val token = TokenManager.token ?: return
+
+    RetrofitClient.instance.deleteFile("Bearer $token", fileId)
+        .enqueue(object : Callback<Void> {
+            override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                if (response.isSuccessful) {
+                    Log.d("DELETE", "File Deleted successfully}") // File deleted successfully
+                } else {
+                    Log.e("DELETE_FILE", "Failed to delete file: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<Void>, t: Throwable) {
+                Log.e("DELETE_FILE_ERROR", "Network or server error: ${t.message}")
+            }
+        })
+}
+
+
+
+
+@Composable
+fun DashboardScreen(
+    navController: NavHostController,
+    openFilePicker: () -> Unit,
+    uploadSelectedFile: (Uri?) -> Unit,
+    getSelectedFileUri: () -> Uri?
+) {
+    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
+    val filesList = remember { mutableStateListOf<FileInfo>() }
+
+    fun updateFiles(newFiles: List<FileInfo>) {
+        filesList.clear()
+        filesList.addAll(newFiles)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .size(500.dp, 600.dp)
+                .padding(16.dp)
+                .background(Color.White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = { openFilePicker() },
+                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Select File", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    selectedFileUri = getSelectedFileUri()
+                    selectedFileUri?.let { uploadSelectedFile(it) }
+                },
+                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Upload File", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {fetchFiles(::updateFiles)},
+                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Browse Files", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (filesList.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    items(filesList) { file ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            elevation = CardDefaults.cardElevation(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(text = file.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "Size: ${file.size} bytes", fontSize = 12.sp, color = Color.Gray)
+                                }
+                                IconButton(onClick = { /* Implement download */ }) {
+                                    Icon(Icons.Default.Done, contentDescription = "Download")
+                                }
+                                IconButton(onClick = { deleteFile(file.id.toString()) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = "No files available.",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+        }
+    }
+}
+
 
 @Composable
 fun RegistrationScreen(navController: NavHostController) {

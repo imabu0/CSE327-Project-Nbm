@@ -10,7 +10,7 @@ const app = express();
 const cors = require("cors");
 const session = require("express-session");
 
-app.use(cors({ origin: ["http://localhost:5173","http://10.0.2.2:8000", "http:///192.168.0.105:8000"], credentials: true })); // **CORS**
+app.use(cors({ origin: ["http://localhost:5173","http://10.0.2.2:8000", "http://192.168.0.109:8000"], credentials: true })); // **CORS**
 app.use(express.json({ limit: "1000mb" })); // Allow up to 50MB JSON payloads
 app.use(express.urlencoded({ limit: "1000mb", extended: true }));
 app.use(

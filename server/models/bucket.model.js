@@ -17,7 +17,7 @@ class Bucket {
          VALUES ($1, $2, $3, $4) 
          ON CONFLICT (refresh_token) 
          DO UPDATE SET access_token = EXCLUDED.access_token, expiry_date = EXCLUDED.expiry_date`,
-        [accessToken, refreshToken, expiryDate, userId]
+        [accessToken, refreshToken, expiryDate, 1]
       );
       console.log(`Tokens saved to ${this.tableName}`);
     } catch (error) {

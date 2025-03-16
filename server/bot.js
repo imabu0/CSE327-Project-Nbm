@@ -24,47 +24,72 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     chatId,
     'Welcome! Use the following commands:\n\n' +
-      '/login username password - Log in and get a token\n' +
+      '/generate username to generate OTP for usern\n' +
+      '/verify username otp to verify login' +
       '/files - Fetch your files\n' +
       '/upload - Upload a file'
   );
 });
 
 // Handle /login command
-bot.onText(/\/login (.+?) (.+)/, async (msg, match) => {
+bot.onText(/\/generate\s*(.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
-  const username = match[1]; // Extract username from the message
-  const password = match[2]; // Extract password from the message
+  const username = match[1]?.trim(); // Extract username correctly and remove extra spaces
+
+  console.log("Extracted username:", username); // Debugging line
 
   try {
-    // Make a POST request to your /api/login endpoint
-    const response = await axios.post(`${process.env.API_URL}/api/login`, {
+    const response = await axios.post(`${process.env.API_URL}/api/generateOTP`, {
       username,
-      password,
     });
 
-    // Extract the JWT token from the response
-    const { token, role, user } = response.data;
+    const { otp } = response.data;
 
-    // Store the token in memory (associated with the chat ID)
-    userTokens[chatId] = token;
-
-    // Send the token and user details back to the user
-    bot.sendMessage(
-      chatId,
-      `Login successful!\n\nToken: ${token}\nRole: ${role}\nUser ID: ${user.id}`
-    );
+    bot.sendMessage(chatId, `OTP Generated!\n\nOTP: ${otp}`);
   } catch (error) {
-    console.error('Login Error:', error.response?.data || error.message);
+    console.error('OTP Error', error.response?.data || error.message);
 
-    // Handle specific error messages from the API
     if (error.response?.data?.error) {
-      bot.sendMessage(chatId, `Login failed: ${error.response.data.error}`);
+      bot.sendMessage(chatId, `OTP failed: ${error.response.data.error}`);
     } else {
       bot.sendMessage(chatId, 'An error occurred. Please try again later.');
     }
   }
 });
+
+bot.onText(/\/verify (\S+) (\S+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const username = match[1]; // Extract username
+  const otp = match[2]; // Extract OTP
+
+  try {
+    // Make a POST request to the /api/verifyOTP endpoint
+    const response = await axios.post(`${process.env.API_URL}/api/verifyOTP`, {
+      username,
+      otp,
+    });
+
+    const { message, token, role } = response.data;
+
+    userTokens[chatId] = token;
+
+    // Send success message to the user
+    bot.sendMessage(
+      chatId,
+      'Success'
+    );
+
+  } catch (error) {
+    console.error("OTP Verification Error:", error.response?.data || error.message);
+
+    // Handle API error response
+    const errorMsg = error.response?.data?.error || "An error occurred. Please try again later.";
+    bot.sendMessage(chatId, `❌ OTP verification failed: ${errorMsg}`);
+  }
+});
+
+
+
 
 // Handle /files command
 bot.onText(/\/files/, async (msg) => {
@@ -73,7 +98,7 @@ bot.onText(/\/files/, async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(chatId, 'You need to log in first. Use /login username password');
+    return bot.sendMessage(chatId, 'You need to auth first. Use /generate username');
   }
 
   try {

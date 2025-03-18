@@ -45,6 +45,11 @@ interface ApiService {
         @Path("id") fileId: String
     ): Call<ResponseBody> // This returns the file content
 
+    @POST("/api/otp")
+    fun getOtp(
+        @Header("Authorization") token: String
+    ): Call<OtpResponse>
+
 }
 
 
@@ -60,6 +65,11 @@ data class FileInfo(
     val fileExtension: String?,
     val size: Long,
     val created_at: String
+)
+data class OtpResponse(
+    val message: String,
+    val otp: String,
+    val expiresAt: String
 )
 
 

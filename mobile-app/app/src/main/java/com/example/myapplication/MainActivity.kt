@@ -31,6 +31,7 @@ import android.provider.OpenableColumns
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -39,7 +40,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -47,7 +48,6 @@ import retrofit2.*
 import java.io.File
 import java.io.IOException
 import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.ResponseBody
 import java.io.FileOutputStream
 
 
@@ -168,79 +168,6 @@ private fun uploadFile(uri: Uri, contentResolver: ContentResolver, cacheDir: Fil
         })
 }
 
-
-/*@Composable
-fun DashboardScreen(
-    navController: NavHostController,
-    openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit,
-    getSelectedFileUri: () -> Uri?
-){
-    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5)),
-        contentAlignment = Alignment.Center
-    ){
-        Column(
-            modifier = Modifier
-                .size(500.dp, 480.dp)
-                .padding(16.dp)
-                .background(Color.White),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(
-                onClick = { openFilePicker() }, // Only open file picker
-                modifier = Modifier.fillMaxWidth().padding(32.dp).height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
-            ) {
-                Text(text = "Select File", color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    selectedFileUri = getSelectedFileUri()
-                    if (selectedFileUri != null) {
-                        uploadSelectedFile(selectedFileUri)
-                    } else {
-                        Log.e("UPLOAD", "No file selected")
-                    }
-                }, // Now upload only after selection
-                modifier = Modifier.fillMaxWidth().padding(32.dp).height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
-            ) {
-                Text(text = "Upload File", color = Color.White)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            if (selectedFileUri != null) {
-                Text(
-                    text = "Selected: ${selectedFileUri.toString()}",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
-            ) {
-                Text(text = "Browse", color = Color.White)
-            }
-        }
-
-    }
-
-}
-
- */
-
 private fun fetchFiles(updateFiles: (List<FileInfo>) -> Unit) {
     val token = TokenManager.token ?: return
 
@@ -258,6 +185,27 @@ private fun fetchFiles(updateFiles: (List<FileInfo>) -> Unit) {
 
             override fun onFailure(call: Call<List<FileInfo>>, t: Throwable) {
                 Log.e("FETCH_FILES_ERROR", "Network or server error: ${t.message}")
+            }
+        })
+}
+
+private fun getOtp(updateOtp: (String) -> Unit) {
+    val token = TokenManager.token ?: return
+
+    RetrofitClient.instance.getOtp("Bearer $token")
+        .enqueue(object : Callback<OtpResponse> {
+            override fun onResponse(call: Call<OtpResponse>, response: Response<OtpResponse>) {
+                if (response.isSuccessful) {
+                    response.body()?.let { otpResponse ->
+                        updateOtp(otpResponse.otp)
+                    }
+                } else {
+                    Log.e("GET_OTP", "Failed to get OTP: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<OtpResponse>, t: Throwable) {
+                Log.e("GET_OTP_ERROR", "Network or server error: ${t.message}")
             }
         })
 }
@@ -301,6 +249,8 @@ fun DashboardScreen(
         filesList.addAll(newFiles)
     }
 
+    val context = LocalContext.current
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -333,6 +283,19 @@ fun DashboardScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
             ) {
                 Text(text = "Upload File", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = { getOtp { otp ->
+                    Toast.makeText(context, "Your OTP: $otp", Toast.LENGTH_LONG).show()
+                }
+                          },
+                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Get OTP", color = Color.White)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

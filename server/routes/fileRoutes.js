@@ -9,9 +9,6 @@ const protectRoute = require("../middlewares/authMiddleware.js");
 
 // Upload route
 router.post("/upload", protectRoute, upload.single("file"), async (req, res) => { 
-  console.log("Headers:", req.headers); 
-  console.log("Auth User:", req.user); 
-  console.log("Uploaded File:", req.file); 
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded "});
   }

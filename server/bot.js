@@ -27,7 +27,9 @@ bot.onText(/\/start/, (msg) => {
       "/login username to login\n" +
       "/verify username otp to verify yourself\n" +
       "/files - Fetch your files\n" +
-      "/upload - Upload a file"
+      "/upload - Upload a file\n" +
+      "/download <fileId> - Download a file\n" +
+      "/delete <fileId> - Delete a file"
   );
 });
 
@@ -102,10 +104,7 @@ bot.onText(/\/files/, async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(
-      chatId,
-      "You need to first /login username"
-    );
+    return bot.sendMessage(chatId, "You need to first /login username");
   }
 
   try {
@@ -126,7 +125,8 @@ bot.onText(/\/files/, async (msg) => {
 
     const fileList = files
       .map(
-        (file, i) => `${i + 1}. ${file.title} (${formatFileSize(file.size)})`
+        (file, i) =>
+          `${i + 1}. ${file.title} <${file.id}> (${formatFileSize(file.size)})`
       )
       .join("\n");
 
@@ -153,10 +153,7 @@ bot.onText(/\/upload/, async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(
-      chatId,
-      "You need to first /login username"
-    );
+    return bot.sendMessage(chatId, "You need to first /login username");
   }
 
   // Ask the user to send a file
@@ -170,10 +167,7 @@ bot.on("document", async (msg) => {
   // Check if the user has a token
   const token = userTokens[chatId];
   if (!token) {
-    return bot.sendMessage(
-      chatId,
-      "You need to first /login username"
-    );
+    return bot.sendMessage(chatId, "You need to first /login username");
   }
 
   try {
@@ -233,6 +227,122 @@ bot.on("document", async (msg) => {
     // Handle specific error messages from the API
     if (error.response?.data?.error) {
       bot.sendMessage(chatId, `Upload failed: ${error.response.data.error}`);
+    } else {
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
+    }
+  }
+});
+
+// Handle /download command
+bot.onText(/\/download (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const fileId = match[1]; // Extract the fileId from the command
+
+  // Check if the user has a token
+  const token = userTokens[chatId];
+  if (!token) {
+    return bot.sendMessage(
+      chatId,
+      "You need to log in first. Use /login username password"
+    );
+  }
+
+  try {
+    // Make a GET request to the /download endpoint
+    const response = await axios.get(
+      `${process.env.API_URL}/file/download/${fileId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: "stream", // Stream the file
+      }
+    );
+
+    // Extract the file name from the Content-Disposition header
+    const contentDisposition = response.headers["content-disposition"];
+    console.log("Content-Disposition Header:", contentDisposition);
+
+    let fileName = `file_${fileId}`; // Fallback file name
+    if (contentDisposition && contentDisposition.includes("filename=")) {
+      fileName = contentDisposition
+        .split("filename=")[1]
+        .split(";")[0] // Handle cases where there are additional parameters
+        .replace(/['"]/g, ""); // Remove quotes
+
+      // Remove ".undefined" if present
+      if (fileName.endsWith(".undefined")) {
+        fileName = fileName.replace(".undefined", "");
+      }
+    }
+    console.log("Final File Name:", fileName);
+
+    // Create a temporary file path
+    const tempFilePath = `./uploads/${fileName}`;
+
+    // Save the file locally
+    const writeStream = fs.createWriteStream(tempFilePath);
+    response.data.pipe(writeStream);
+
+    // Wait for the file to finish downloading
+    await new Promise((resolve, reject) => {
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
+
+    // Send the file to the user with the actual file name
+    await bot.sendDocument(chatId, tempFilePath, {}, { filename: fileName });
+
+    // Delete the temporary file after sending
+    fs.unlinkSync(tempFilePath);
+  } catch (error) {
+    console.error("Download Error:", error.response?.data || error.message);
+
+    // Handle specific error messages from the API
+    if (error.response?.data?.error) {
+      bot.sendMessage(chatId, `Download failed: ${error.response.data.error}`);
+    } else {
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
+    }
+  }
+});
+
+// Handle /delete command
+bot.onText(/\/delete (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const fileId = match[1]; // Extract the fileId from the command
+
+  // Check if the user has a token
+  const token = userTokens[chatId];
+  if (!token) {
+    return bot.sendMessage(
+      chatId,
+      "You need to log in first. Use /login username password"
+    );
+  }
+
+  try {
+    // Make a DELETE request to the /delete endpoint
+    const response = await axios.delete(
+      `${process.env.API_URL}/file/delete/${fileId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // Notify the user about the successful deletion
+    bot.sendMessage(
+      chatId,
+      response.data.message || "File deleted successfully."
+    );
+  } catch (error) {
+    console.error("Delete Error:", error.response?.data || error.message);
+
+    // Handle specific error messages from the API
+    if (error.response?.data?.error) {
+      bot.sendMessage(chatId, `Delete failed: ${error.response.data.error}`);
     } else {
       bot.sendMessage(chatId, "An error occurred. Please try again later.");
     }

@@ -81,6 +81,10 @@ class Bucket {
   deleteFile(fileId) {
     throw new Error("deleteFile() must be implemented in a subclass");
   }
+
+  setUser(user_id) {
+    throw new Error("setUser() must be implemented in a subclass");
+  }
 }
 
 module.exports = Bucket;

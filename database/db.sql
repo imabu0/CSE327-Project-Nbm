@@ -42,3 +42,19 @@ CREATE TABLE chunk_id (
     chunk_id VARCHAR(255) NOT NULL,  -- Chunk ID (e.g., from Google Drive or Dropbox)
     type VARCHAR(50) NOT NULL       -- Type of storage (e.g., "google" or "dropbox")
 );
+
+CREATE TABLE user_otps (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user
+        FOREIGN KEY (user_id)
+        REFERENCES user_info(id)
+        ON DELETE CASCADE,
+    CONSTRAINT unique_user_otp
+        UNIQUE (user_id),
+    CONSTRAINT otp_length_check
+        CHECK (LENGTH(otp) = 6)
+);

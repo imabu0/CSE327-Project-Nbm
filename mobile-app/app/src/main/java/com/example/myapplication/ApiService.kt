@@ -9,8 +9,10 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ApiService {
     @POST("/api/register")
@@ -49,6 +51,16 @@ interface ApiService {
     fun getOtp(
         @Header("Authorization") token: String
     ): Call<OtpResponse>
+    @GET("/google/authorize")
+    fun getGoogleAuthUrl(): Call<Void>
+
+    @GET("google/oauth2callback")
+    fun handleGoogleAuthCallback(
+        @Query("code") code: String
+    ): Call<Void> // Exchange the code for an access token
+
+    @PUT("google/set")
+    fun setGoogleDriveUser(): Call<ResponseBody> // Set user ID for Google Drive
 
 }
 

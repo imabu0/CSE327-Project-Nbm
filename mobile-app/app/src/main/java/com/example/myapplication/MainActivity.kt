@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.app.Activity
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -25,6 +26,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.content.ContentResolver
+import android.content.Context
+import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -39,15 +42,18 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.core.content.ContextCompat.startActivity
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import retrofit2.*
 import java.io.File
 import java.io.IOException
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.ResponseBody
 import java.io.FileOutputStream
 
 
@@ -109,6 +115,9 @@ fun AppNavigation(openFilePicker: () -> Unit, uploadSelectedFile: (Uri?) -> Unit
         }
         composable("dashboard"){
             DashboardScreen(navController, openFilePicker, uploadSelectedFile, getSelectedFileUri)
+        }
+        composable("Gauth"){
+            GoogleAuthScreen(navController)
         }
     }
 }
@@ -231,7 +240,119 @@ private fun deleteFile(fileId: String) {
         })
 }
 
+fun openBrowser(context: Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    context.startActivity(intent)
+}
 
+
+@Composable
+fun GoogleAuthScreen(navController: NavHostController){
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var authUrl by remember { mutableStateOf<String?>(null) }
+    var isAuthenticated by remember { mutableStateOf(false) }
+
+    val apiService = RetrofitClient.instance
+
+    // Function to fetch the Google OAuth authorization URL
+
+    fun fetchAuthUrl() {
+        RetrofitClient.instance.getGoogleAuthUrl().enqueue(object : Callback<Void> {
+            override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                if (response.code() == 302) {
+                    // Extract the redirect URL from the Location header
+                    val authUrl = response.headers()["Location"]
+                    if (authUrl != null) {
+                        Log.d("AuthRedirect", "Redirect URL: $authUrl")
+                        openBrowser(context, authUrl)
+                    } else {
+                        Log.e("AuthRedirect", "No Location header found in response")
+                    }
+                } else {
+                    Log.e("AuthRedirect", "Request failed: $authUrl ${response.code()}")
+                }
+            }
+
+            override fun onFailure(call: Call<Void>, t: Throwable) {
+                Log.e("AuthRedirect", "API call failed: ${t.message}")
+            }
+        })
+    }
+
+    // Function to handle Google OAuth callback and exchange code for token
+    fun handleAuthCallback(authCode: String) {
+        apiService.handleGoogleAuthCallback(authCode).enqueue(object : Callback<Void> {
+            override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                if (response.isSuccessful) {
+                    isAuthenticated = true
+                    Toast.makeText(context, "Google Drive linked!", Toast.LENGTH_LONG).show()
+                    navController.navigate("dashboard")
+                } else {
+                    Toast.makeText(context, "Authentication failed", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onFailure(call: Call<Void>, t: Throwable) {
+                Log.e("GoogleAuth", "OAuth Callback Failed: ${t.message}")
+                Toast.makeText(context, "Authentication failed", Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+
+    // Function to set the Google Drive user
+    fun setGoogleDriveUser() {
+        apiService.setGoogleDriveUser().enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful) {
+                    Log.d("GoogleAuth", "User set successfully")
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Log.e("GoogleAuth", "Error setting user: ${t.message}")
+            }
+        })
+    }
+
+    // Handle deep link callback for Google OAuth
+    val activity = context as? Activity  // Cast context to Activity
+    val deepLink = activity?.intent?.data
+
+    deepLink?.getQueryParameter("code")?.let { authCode ->
+        handleAuthCallback(authCode)
+    }
+
+
+    // UI
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Google Drive Authorization", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(onClick = { fetchAuthUrl() }) {
+            Text("Get Google Auth URL")
+        }
+
+        authUrl?.let { url ->
+            Button(onClick = { openBrowser(context, url) }) {
+                Text("Link Google Drive")
+            }
+        }
+
+        if (isAuthenticated) {
+            Text("Google Drive linked successfully!", color = Color.Green)
+            Button(onClick = { setGoogleDriveUser() }) {
+                Text("Set Google Drive User")
+            }
+        }
+    }
+}
 
 
 @Composable
@@ -264,6 +385,16 @@ fun DashboardScreen(
                 .background(Color.White),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Button(
+                onClick = { navController.navigate("Gauth") },
+                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
+            ) {
+                Text(text = "Link Accounts", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Button(
                 onClick = { openFilePicker() },
                 modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),

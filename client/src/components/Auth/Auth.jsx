@@ -53,11 +53,7 @@ export const Auth = () => {
         // Storing JWT token and role in localStorage upon successful login
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("role", response.data.role);
-        if (response.data.role == "admin") {
-          navigate("/dashboard"); // If logged in as admin redirect to the dashboard
-        } else {
-          navigate("/all"); // If logged in as user redirect to the dashboard
-        }
+        navigate("/dashboard"); // Redirect to dashboard after successful login
       }
     } catch (error) {
       console.error(

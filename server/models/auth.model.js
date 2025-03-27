@@ -89,21 +89,27 @@ const loginUser = async (req, res) => {
 
 const generateOTP = async (req, res) => {
   try {
-    const { username } = req.body;
+    const { username, password } = req.body;
 
     // Validate input
-    if (!username) {
-      return res.status(400).json({ error: "Username is required" });
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
     }
 
-    console.log(username + " Hello");
-    // Check if user exists
+    // Check if user exists and verify password
     const user = await pool.query(
       "SELECT * FROM user_info WHERE username = $1",
       [username]
     );
+    
     if (user.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
+    }
+
+    // Verify password (assuming passwords are hashed in the database)
+    const isValidPassword = await bcrypt.compare(password, user.rows[0].password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     // Generate a 6-digit OTP
@@ -118,10 +124,9 @@ const generateOTP = async (req, res) => {
       [user.rows[0].id, otp, expiresAt]
     );
 
-    // In a real application, you would send this OTP via Telegram bot here
     res.status(200).json({
       message: "OTP generated successfully",
-      otp: otp, // Remove in production
+      otp: otp, // Note: Remove this in production - only for testing
       expiresAt: expiresAt,
     });
   } catch (error) {

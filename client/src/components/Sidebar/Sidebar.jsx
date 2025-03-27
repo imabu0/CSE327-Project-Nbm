@@ -17,6 +17,7 @@ export const Sidebar = () => {
       );
     } else {
       return (
+        b.title === "Dashboard" ||
         b.title === "All" ||
         b.title === "Files" ||
         b.title === "Images & Videos"

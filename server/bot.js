@@ -33,38 +33,58 @@ bot.onText(/\/start/, (msg) => {
   );
 });
 
+const pendingLogins = new Map();
+
 // Handle /login command
-bot.onText(/\/login\s*(.+)/, async (msg, match) => {
+bot.onText(/\/login\s*(.+)/, (msg, match) => {
   const chatId = msg.chat.id;
-  const username = match[1]?.trim(); // Extract username correctly and remove extra spaces
+  const username = match[1]?.trim();
 
-  console.log("Extracted username:", username); // Debugging line
+  pendingLogins.set(chatId, { username, state: "awaiting_password" });
 
-  try {
-    const response = await axios.post(
-      `${process.env.API_URL}/api/generateOTP`,
-      {
-        username,
-      }
-    );
+  bot.sendMessage(chatId, "Please send your password");
+});
 
-    const { otp } = response.data;
+// Handle password response
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+  const loginData = pendingLogins.get(chatId);
 
-    bot.sendMessage(
-      chatId,
-      `OTP sent please verify using /verify ${username} your_otp`
-    );
-  } catch (error) {
-    console.error("OTP Error", error.response?.data || error.message);
+  if (loginData?.state === "awaiting_password") {
+    const password = msg.text;
 
-    if (error.response?.data?.error) {
-      bot.sendMessage(chatId, `OTP failed: ${error.response.data.error}`);
-    } else {
-      bot.sendMessage(chatId, "An error occurred. Please try again later.");
+    // Immediately delete password message
+    try {
+      await bot.deleteMessage(chatId, msg.message_id);
+    } catch (e) {
+      console.log("Couldn't delete message", e);
     }
+
+    // Process login
+    try {
+      const response = await axios.post(
+        `${process.env.API_URL}/api/generateOTP`,
+        {
+          username: loginData.username,
+          password,
+        }
+      );
+
+      await bot.sendMessage(
+        chatId,
+        `OTP sent to ${loginData.username}\n` +
+          `Use: /verify ${loginData.username} YOUR_OTP\n`
+      );
+    } catch (error) {
+      await bot.sendMessage(chatId, "⚠️ Login failed. Please try /login again");
+    }
+
+    pendingLogins.delete(chatId);
+    return;
   }
 });
 
+// Handle /verify command
 bot.onText(/\/verify (\S+) (\S+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const username = match[1]; // Extract username
@@ -359,19 +379,6 @@ function formatFileSize(size) {
     return `${(size / (1024 * 1024)).toFixed(2)} MB`;
   }
 }
-
-// Handle unknown commands or messages
-bot.on("message", (msg) => {
-  const chatId = msg.chat.id;
-
-  // Check if the message has text and is not a command
-  if (msg.text && !msg.text.startsWith("/")) {
-    bot.sendMessage(
-      chatId,
-      "I don’t understand that command. Use /start to begin."
-    );
-  }
-});
 
 // Handle polling errors
 bot.on("polling_error", (error) => {

@@ -87,16 +87,64 @@ const loginUser = async (req, res) => {
   }
 };
 
+// const generateOTP = async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+
+//     // Validate input
+//     if (!username || !password) {
+//       return res.status(400).json({ error: "Username and password are required" });
+//     }
+
+//     // Check if user exists and verify password
+//     const user = await pool.query(
+//       "SELECT * FROM user_info WHERE username = $1",
+//       [username]
+//     );
+    
+//     if (user.rows.length === 0) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // Verify password (assuming passwords are hashed in the database)
+//     const isValidPassword = await bcrypt.compare(password, user.rows[0].password);
+//     if (!isValidPassword) {
+//       return res.status(401).json({ error: "Invalid credentials" });
+//     }
+
+//     // Generate a 6-digit OTP
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+//     // Set OTP expiration to 1 minute from now
+//     const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
+
+//     // Store OTP in database
+//     await pool.query(
+//       "INSERT INTO user_otps (user_id, otp, expires_at) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET otp = $2, expires_at = $3",
+//       [user.rows[0].id, otp, expiresAt]
+//     );
+
+//     res.status(200).json({
+//       message: "OTP generated successfully",
+//       otp: otp, // Note: Remove this in production - only for testing
+//       expiresAt: expiresAt,
+//     });
+//   } catch (error) {
+//     console.error("OTP Generation Error:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
+
 const generateOTP = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username } = req.body;
 
     // Validate input
-    if (!username || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
+    if (!username) {
+      return res.status(400).json({ error: "Username is required" });
     }
 
-    // Check if user exists and verify password
+    // Check if user exists
     const user = await pool.query(
       "SELECT * FROM user_info WHERE username = $1",
       [username]
@@ -104,12 +152,6 @@ const generateOTP = async (req, res) => {
     
     if (user.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
-    }
-
-    // Verify password (assuming passwords are hashed in the database)
-    const isValidPassword = await bcrypt.compare(password, user.rows[0].password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     // Generate a 6-digit OTP

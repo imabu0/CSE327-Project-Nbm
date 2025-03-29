@@ -24,8 +24,9 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     chatId,
     "Welcome! Use the following commands:\n\n" +
-      "/login username to login\n" +
-      "/verify username otp to verify yourself\n" +
+      "/login username - Request OTP for login\n" +
+      "/verify username otp - Verify your OTP\n" +
+      "/logout - Log out of your account\n" +
       "/files - Fetch your files\n" +
       "/upload - Upload a file\n" +
       "/download <fileId> - Download a file\n" +
@@ -341,6 +342,18 @@ bot.onText(/\/delete (.+)/, async (msg, match) => {
     } else {
       bot.sendMessage(chatId, "An error occurred. Please try again later.");
     }
+  }
+});
+
+// Handle /logout command
+bot.onText(/\/logout/, (msg) => {
+  const chatId = msg.chat.id;
+  
+  if (userTokens[chatId]) {
+    delete userTokens[chatId];
+    bot.sendMessage(chatId, "You have been successfully logged out.");
+  } else {
+    bot.sendMessage(chatId, "You weren't logged in to begin with.");
   }
 });
 

@@ -14,3 +14,28 @@ body{
     font-family: 'Poppins', sans-serif;
     background-color: #F7F5F4;
 }
+
+/* Custom drag & drop area */
+.ant-upload.ant-upload-drag {
+    background: rgba(24, 144, 255, 0.02);
+    border: 2px dashed #1890ff;
+    border-radius: 8px;
+    transition: all 0.3s;
+  }
+  
+  .ant-upload.ant-upload-drag:hover {
+    border-color: #40a9ff;
+    background: rgba(24, 144, 255, 0.05);
+  }
+  
+  /* Result cards */
+  .ant-card-cover img {
+    border-radius: 8px 8px 0 0 !important;
+  }
+  
+  /* Responsive grid */
+  @media (max-width: 768px) {
+    .ant-col {
+      margin-bottom: 16px;
+    }
+  }

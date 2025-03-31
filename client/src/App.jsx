@@ -4,7 +4,7 @@ import { Dashboard } from "./components/Pages/Dashboard/Dashboard";
 import { All } from "./components/Pages/All/All";
 import { Files } from "./components/Pages/Files/Files";
 import { Images } from "./components/Pages/Images/Images";
-import { Flask } from "./components/Flask";
+import { ImageSearchPage } from "./components/ImageSearchPage";
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
         <Route exact path="/all" element={<All />} />
         <Route exact path="/files" element={<Files />} />
         <Route exact path="/images" element={<Images />} />
-        <Route exact path="/flask" element={<Flask />} />
+        <Route exact path="/search" element={<ImageSearchPage />} />
       </Routes>
     </Main>
   );

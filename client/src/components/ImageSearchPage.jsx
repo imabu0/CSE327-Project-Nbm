@@ -1,158 +1,97 @@
-import React, { useState } from 'react';
-import { 
-  Upload, 
-  Button, 
-  Card, 
-  Row, 
-  Col, 
-  Image, 
-  Progress, 
-  message,
-  Spin,
-  Empty
-} from 'antd';
-import { 
-  SearchOutlined, 
-  UploadOutlined, 
-  CameraOutlined 
-} from '@ant-design/icons';
-import axios from 'axios';
-
-const { Dragger } = Upload;
+import React, { useState } from "react";
+import { Button, Upload, List, Image, Card, Spin, message } from "antd";
+import { UploadOutlined, SearchOutlined } from "@ant-design/icons";
+import axios from "axios";
 
 export const ImageSearchPage = () => {
-  const [results, setResults] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [previewImage, setPreviewImage] = useState(null);
 
-  const beforeUpload = (file) => {
-    const isImage = file.type.startsWith('image/');
-    if (!isImage) {
-      message.error('You can only upload image files!');
+  const handleUpload = async (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        "http://localhost:8000/api/images/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      message.success(response.data.message || "Upload successful!");
+    } catch (error) {
+      message.error(error.response?.data?.error || "Upload failed");
+    } finally {
+      setLoading(false);
     }
-    return isImage;
+    return false; // Prevent default behavior
   };
 
   const handleSearch = async (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
     try {
       setLoading(true);
-      setPreviewImage(URL.createObjectURL(file));
-      
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const { data } = await axios.post('/api/vision-search', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      setResults(data);
+      const { data } = await axios.post(
+        "http://localhost:5000/api/images/search",
+        formData
+      );
+      setSearchResults(data);
     } catch (error) {
-      message.error('Search failed: ' + error.message);
+      message.error("Search failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Card 
-        title="Visual Search Engine" 
-        bordered={false}
-        style={{ marginBottom: 24 }}
-      >
-        <Row gutter={[16, 16]}>
-          <Col span={24}>
-            <Dragger
-              name="image"
-              accept="image/*"
-              showUploadList={false}
-              beforeUpload={beforeUpload}
-              customRequest={({ file }) => handleSearch(file)}
-              style={{ padding: '40px 0' }}
-            >
-              <p className="ant-upload-drag-icon">
-                <CameraOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
-              </p>
-              <p className="ant-upload-text">
-                Drag & drop an image or click to browse
-              </p>
-              <p className="ant-upload-hint">
-                Supports JPEG, PNG, WEBP up to 10MB
-              </p>
-            </Dragger>
-          </Col>
-          
-          {previewImage && (
-            <Col span={24}>
-              <Card title="Search Image" size="small">
-                <Image
-                  src={previewImage}
-                  width={200}
-                  style={{ borderRadius: 8 }}
-                  preview={false}
-                />
-              </Card>
-            </Col>
-          )}
-        </Row>
-      </Card>
+    <Card title="Image Search" style={{ maxWidth: 800, margin: "20px auto" }}>
+      <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+        <Upload
+          accept="image/*"
+          beforeUpload={handleUpload}
+          showUploadList={false}
+        >
+          <Button icon={<UploadOutlined />} loading={loading}>
+            Upload Image
+          </Button>
+        </Upload>
 
-      <Card 
-        title={`Search Results (${results.length})`} 
-        bordered={false}
-        loading={loading}
-      >
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>
-            <Spin size="large" tip="Analyzing image..." />
-          </div>
-        ) : results.length > 0 ? (
-          <Row gutter={[16, 16]}>
-            {results.map((item) => (
-              <Col key={item.file_id} xs={24} sm={12} md={8} lg={6} xl={4}>
-                <Card
-                  hoverable
-                  cover={
-                    <Image
-                      src={item.thumbnail_url}
-                      alt="Result"
-                      style={{ height: '160px', objectFit: 'cover' }}
-                      preview={{
-                        src: item.download_url // You'd need to implement this
-                      }}
-                    />
-                  }
-                >
-                  <Card.Meta
-                    title={`${item.storage_type.toUpperCase()} Storage`}
-                    description={
-                      <>
-                        <Progress
-                          percent={Math.round(item.similarity_score * 100)}
-                          status="active"
-                          showInfo={false}
-                        />
-                        <span>Match: {Math.round(item.similarity_score * 100)}%</span>
-                      </>
-                    }
+        <Upload
+          accept="image/*"
+          beforeUpload={handleSearch}
+          showUploadList={false}
+        >
+          <Button icon={<SearchOutlined />} loading={loading} type="primary">
+            Search Similar
+          </Button>
+        </Upload>
+      </div>
+
+      <Spin spinning={loading}>
+        <List
+          grid={{ gutter: 16, column: 3 }}
+          dataSource={searchResults}
+          renderItem={(item) => (
+            <List.Item>
+              <Image
+                src={item.url}
+                width={200}
+                style={{ borderRadius: 8 }}
+                placeholder={
+                  <div
+                    style={{ width: 200, height: 200, background: "#f0f0f0" }}
                   />
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        ) : (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              previewImage 
-                ? "No similar images found" 
-                : "Upload an image to search your cloud storage"
-            }
-          />
-        )}
-      </Card>
-    </div>
+                }
+              />
+            </List.Item>
+          )}
+        />
+      </Spin>
+    </Card>
   );
 };

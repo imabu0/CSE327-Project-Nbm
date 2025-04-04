@@ -8,6 +8,7 @@ export const Auth = () => {
   const [registerData, setRegisterData] = useState({
     name: "",
     username: "",
+    email: "",
     role: "user",
     password: "",
   }); // State to hold registration form data
@@ -135,6 +136,14 @@ export const Auth = () => {
                 onChange={handleChange} // Handle input change
                 type="text"
                 placeholder="Enter Username"
+                className="w-full h-12 rounded-max border border-primary px-3 bg-bg focus:outline-none"
+              />
+              <input
+                name="email"
+                value={registerData.email}
+                onChange={handleChange} // Handle input change
+                type="email"
+                placeholder="Enter Email"
                 className="w-full h-12 rounded-max border border-primary px-3 bg-bg focus:outline-none"
               />
               <input

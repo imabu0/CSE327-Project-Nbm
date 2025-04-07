@@ -419,19 +419,6 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
-                onClick = { getOtp { otp ->
-                    Toast.makeText(context, "Your OTP: $otp", Toast.LENGTH_LONG).show()
-                }
-                          },
-                modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
-            ) {
-                Text(text = "Get OTP", color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
                 onClick = {fetchFiles(::updateFiles)},
                 modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500))
@@ -492,6 +479,7 @@ fun DashboardScreen(
 fun RegistrationScreen(navController: NavHostController) {
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     Box(
         modifier = Modifier
@@ -522,11 +510,13 @@ fun RegistrationScreen(navController: NavHostController) {
             Spacer(modifier = Modifier.height(8.dp))
             CustomTextField(value = username, onValueChange = { username = it }, placeholder = "Enter username")
             Spacer(modifier = Modifier.height(8.dp))
+            CustomTextField(value = email, onValueChange = { email = it }, placeholder = "Enter Email")
+            Spacer(modifier = Modifier.height(8.dp))
             CustomTextField(value = password, onValueChange = { password = it }, placeholder = "Enter password", isPassword = true)
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = {
-                    val request = RegisterRequest(name,username,password,"user")
+                    val request = RegisterRequest(name,username,email,password,"user")
                     RetrofitClient.instance.register(request).enqueue(object : Callback<AuthResponse> {
                         override fun onResponse(call: Call<AuthResponse>, response: Response<AuthResponse>) {
                             if (response.isSuccessful) {

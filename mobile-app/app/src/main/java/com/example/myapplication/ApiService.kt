@@ -65,7 +65,7 @@ interface ApiService {
 }
 
 
-data class RegisterRequest(val name: String, val username: String, val password: String,val role: String)
+data class RegisterRequest(val name: String, val username: String, val email: String, val password: String,val role: String)
 data class LoginRequest(val username: String, val password: String)
 data class AuthResponse(val success: Boolean, val token: String?)
 data class UploadResponse(val success: Boolean, val fileId: FileIdObject)

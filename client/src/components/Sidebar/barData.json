@@ -22,5 +22,11 @@
     "img": "img/images.svg",
     "title": "Images & Videos",
     "link": "/images"
+  },
+  {
+    "id": 5,
+    "img": "img/chatbot.svg",
+    "title": "Chatbot",
+    "link": "/chatbot"
   }
 ]

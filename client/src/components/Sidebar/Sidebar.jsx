@@ -13,14 +13,16 @@ export const Sidebar = () => {
         b.title === "Dashboard" ||
         b.title === "All" ||
         b.title === "Files" ||
-        b.title === "Images & Videos"
+        b.title === "Images & Videos" ||
+        b.title === "Chatbot"
       );
     } else {
       return (
         b.title === "Dashboard" ||
         b.title === "All" ||
         b.title === "Files" ||
-        b.title === "Images & Videos"
+        b.title === "Images & Videos" ||
+        b.title === "Chatbot"
       );
     }
   });

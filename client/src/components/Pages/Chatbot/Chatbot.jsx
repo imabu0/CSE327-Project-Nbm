@@ -7,12 +7,10 @@ import {
   Spin,
   Divider,
   Avatar,
-  Space,
   Alert,
 } from "antd";
 import {
   SendOutlined,
-  FileTextOutlined,
   RobotOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -22,33 +20,12 @@ import { Sidebar } from "../../Sidebar/Sidebar";
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
-export const Chatbot = ({ fileId }) => {
+export const Chatbot = () => {  // Removed fileId prop since we don't need it
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [fileInfo, setFileInfo] = useState(null);
   const [error, setError] = useState(null);
   const token = localStorage.getItem("token");
-
-  // Fetch file info when component mounts
-  useEffect(() => {
-    const fetchFileInfo = async () => {
-      try {
-        const res = await axios.get(`http://localhost:8000/file/chat/38`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const file = res.data.find(
-          (f) => f.id.toString() === fileId.toString()
-        );
-        if (file) setFileInfo(file);
-      } catch (err) {
-        console.error("Error fetching file info:", err);
-        setError("Failed to load document information");
-      }
-    };
-
-    if (fileId) fetchFileInfo();
-  }, [fileId, token]);
 
   const handleSubmit = async () => {
     if (!input.trim()) {
@@ -70,8 +47,11 @@ export const Chatbot = ({ fileId }) => {
 
     try {
       const res = await axios.post(
-        `http://localhost:8000/file/chat/${fileId}`,
-        { question: userInput },
+        "http://localhost:8000/chatbot/chat", // Adjusted URL to match the backend route
+        { 
+          question: userInput 
+          // No fileId needed - backend will search all files
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -106,8 +86,8 @@ export const Chatbot = ({ fileId }) => {
                 level={4}
                 className="flex items-center text-xl font-semibold"
               >
-                <FileTextOutlined className="mr-2" />{" "}
-                {fileInfo?.title || "Chatbot"}
+                <RobotOutlined className="mr-2" />
+                Document Chat Assistant
               </Title>
             </div>
 
@@ -118,7 +98,7 @@ export const Chatbot = ({ fileId }) => {
                 <div className="text-center text-gray-500">
                   <RobotOutlined className="mx-auto text-4xl mb-2" />
                   <Text type="secondary">
-                    Ask a question about your document to get started
+                    Ask a question about your documents to get started
                   </Text>
                 </div>
               )}
@@ -176,7 +156,7 @@ export const Chatbot = ({ fileId }) => {
           <div className="w-full flex">
             <TextArea
               rows={3}
-              placeholder="Ask a question about this document..."
+              placeholder="Ask a question about your documents..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onPressEnter={(e) => {

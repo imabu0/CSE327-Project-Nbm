@@ -11,7 +11,7 @@ const googleRoutes = require("./routes/googleRoutes.js");
 const dropboxRoutes = require("./routes/dropboxRoutes.js");
 const fileRoutes = require("./routes/fileRoutes.js");
 const protectRoute = require("./middlewares/authMiddleware.js");
-const chatRoutes = require("./routes/chatRoutes.js");
+const chatbotRoutes = require("./routes/chatbotRoutes.js");
 
 // **Express Routes**
 const express = require("express");
@@ -48,6 +48,7 @@ app.use("/api", userRoutes); // **User Info**
 app.use("/google", googleRoutes); // **Google Routes**
 app.use("/dropbox", dropboxRoutes); // **Dropbox Routes**
 app.use("/file", fileRoutes); // **File Routes**
+app.use("/chatbot", protectRoute, chatbotRoutes); // **Chatbot Routes**
 
 // **Start Server**
 const PORT = process.env.PORT;

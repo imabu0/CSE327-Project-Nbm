@@ -98,7 +98,7 @@ class DropboxBucket extends Bucket {
     return availableStorage; // Always return an array
   }
 
-  async listFiles() {
+  async listFiles(userId) {
     const storedTokens = await this.loadTokens(userId);
     if (!storedTokens.length) return [];
 

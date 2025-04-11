@@ -30,7 +30,8 @@ bot.onText(/\/start/, (msg) => {
       "/files - Fetch your files\n" +
       "/upload - Upload a file\n" +
       "/download <fileId> - Download a file\n" +
-      "/delete <fileId> - Delete a file"
+      "/delete <fileId> - Delete a file\n" + 
+      "/query <query> - To ask any query from the files"
   );
 });
 
@@ -367,6 +368,46 @@ function formatFileSize(size) {
     return `${(size / (1024 * 1024)).toFixed(2)} MB`;
   }
 }
+
+//handle /query command
+bot.onText(/\/query (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const query = match[1]; // Extract the query from the command
+
+  // Check if the user has a token
+  const token = userTokens[chatId];
+  if (!token) {
+    return bot.sendMessage(
+      chatId,
+      "You need to log in first. Use /login username password"
+    );
+  }
+
+  try {
+    const response = await axios.post(
+      `${process.env.API_URL}/file/query`,
+      { query, token},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // Send the query result back to the user
+    bot.sendMessage(chatId, `Query result: ${response.data.result}`);
+  } catch (error) {
+    console.error("Query Error:", error.response?.data || error.message);
+
+    // Handle specific error messages from the API
+    if (error.response?.data?.error) {
+      bot.sendMessage(chatId, `Query failed: ${error.response.data.error}`);
+    } else {
+      bot.sendMessage(chatId, "An error occurred. Please try again later.");
+    }
+  }
+});
+
 
 // Handle polling errors
 bot.on("polling_error", (error) => {

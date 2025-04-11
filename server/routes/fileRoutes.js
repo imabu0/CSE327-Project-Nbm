@@ -6,6 +6,47 @@ const router = express.Router(); // Create a new router instance
 const fileOp = new FileOp(); // Create an instance of the FileOp class
 const upload = multer({ dest: "uploads/" }); // Temporary folder for uploaded files
 const protectRoute = require("../middlewares/authMiddleware.js");
+const path = require("path");
+const fs = require("fs");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth"); // For .docx files
+const { callLLM } = require("../utils/llm");
+const weaviateClient = require("../utils/vectorDB");
+
+
+
+async function extractTextFromFile(filePath, originalName) {
+  const ext = path.extname(originalName).toLowerCase();
+  console.log(ext);
+  try {
+    if (ext === ".pdf") {
+      const dataBuffer = fs.readFileSync(filePath);
+      const data = await pdfParse(dataBuffer);
+      console.log("PDF data:", data.text);
+      return data.text || "";
+    } else if (ext === ".docx") {
+      const result = await mammoth.extractRawText({ path: filePath });
+      return result.value || "";
+    } else if (ext === ".txt") {
+      return fs.readFileSync(filePath, "utf8");
+    } else {
+      console.warn(`Unsupported file type: ${ext} (${originalName})`);
+      return "";
+    }
+  } catch (error) {
+    console.error(`Error extracting text from ${originalName}:`, error.message);
+    return "Error here";
+  }
+}
+
+function chunkText(text, maxTokens = 512) {
+  const words = text.split(/\s+/);
+  const chunks = [];
+  for (let i = 0; i < words.length; i += maxTokens) {
+    chunks.push(words.slice(i, i + maxTokens).join(" "));
+  }
+  return chunks;
+}
 
 // Upload route
 router.post("/upload", protectRoute, upload.single("file"), async (req, res) => { 
@@ -15,17 +56,35 @@ router.post("/upload", protectRoute, upload.single("file"), async (req, res) => 
   
   try {
     const userId = req.user.id; // Extract the user_id from the request
+    const fileContent = await extractTextFromFile(req.file.path, req.file.originalname);;
+    const chunks = chunkText(fileContent);
+
+    const client = weaviateClient();
+    for (let i = 0; i < chunks.length; i++) {
+      await client.data
+        .creator()
+        .withClassName("DocumentChunk")
+        .withProperties({
+          text: chunks[i],
+          filename: originalName,
+          userId: userId
+        })
+        .do();
+    }
     
     // Correct call to upFile()
     const fileId = await fileOp.upFile(
       req.file.path,
       req.file.originalname,
       req.file.size,
-      userId
+      userId,
+      fileContent,
     );
+
     res.json({ success: true, fileId });
   } catch (error) {
     console.error("Upload Route Error:", error.message);
+    console.log(req.file.path);
     res.status(500).json({ error: "Upload failed" });
   }
 });
@@ -145,6 +204,58 @@ router.get("/space", protectRoute, async (req, res) => {
   } catch (error) {
     console.error("Error fetching available storage:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+const conversationHistory = {}; 
+
+// Route to handle LLM queries
+// This route is for querying the LLM with a specific question and context
+// It uses the user's conversation history and relevant file chunks to generate a response.
+router.post("/query", protectRoute, async (req, res) => {
+  try {
+    const { query } = req.body;
+    const userId = req.user.id;
+    if (!query) return res.status(400).json({ error: "Query is required" });
+
+    const client = await weaviateClient();
+
+    // Search Weaviate for relevant chunks
+    const result = await client.graphql.get()
+      .withClassName("DocumentChunk")
+      .withFields("text filename _additional { distance }")
+      .withNearText({ concepts: [query], certainty: 0.6 })
+      .withWhere({
+        path: ["userId"],
+        operator: "Equal",
+        valueText: userId
+      })
+      .withLimit(4)
+      .do();
+
+    const contextChunks = result.data.Get.DocumentChunk.map(
+      (d) => `File: ${d.filename}\nContent: "${d.text}"`
+    ).join("\n\n");
+
+    const history = conversationHistory[userId] || [];
+    const messages = [
+      ...history,
+      { role: "system", content: `Use the following file info:\n${contextChunks}` },
+      { role: "user", content: query }
+    ];
+
+    const answer = await callLLM(messages);
+
+    conversationHistory[userId] = [
+      ...history.slice(-4),
+      { role: "user", content: query },
+      { role: "assistant", content: answer }
+    ];
+
+    res.json({ result: `🧠 *LLM Answer:*\n${answer}` });
+  } catch (err) {
+    console.error("LLM query failed:", err);
+    res.status(500).json({ error: "LLM query failed" });
   }
 });
 

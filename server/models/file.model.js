@@ -20,7 +20,7 @@ class FileOp {
     };
   }
   
-  async upFile(filePath, fileName, fileSize, userId) {
+  async upFile(filePath, fileName, fileSize, userId, fileContent) {
     const client = await pool.connect(); // Get a client from the pool
 
     try {
@@ -37,8 +37,8 @@ class FileOp {
       // Insert file metadata into the file_info table
       const fileExtension = fileName.split(".").pop(); // Get the file extension
       const fileInsertQuery = `
-        INSERT INTO file_info (title, fileExtension, size, user_id)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO file_info (title, fileExtension, size, user_id, content)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id;
       `;
       const fileRes = await client.query(fileInsertQuery, [
@@ -46,6 +46,7 @@ class FileOp {
         fileExtension,
         fileSize,
         userId,
+        fileContent,
       ]);
       const fileId = fileRes.rows[0].id; // Get the auto-generated file ID
 

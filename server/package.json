@@ -11,13 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@langchain/core": "^0.3.44",
     "@qdrant/js-client-rest": "^1.13.0",
-    "@xenova/transformers": "^2.17.2",
-    "axios": "^1.8.4",
+    "axios": "^1.8.1",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
-    "docx": "^9.3.0",
     "dotenv": "^16.4.7",
     "dropbox": "^10.34.0",
     "dropbox-v2-api": "^2.5.11",
@@ -27,17 +24,15 @@
     "fs": "^0.0.1-security",
     "googleapis": "^144.0.0",
     "jsonwebtoken": "^9.0.2",
-    "langchain": "^0.3.21",
+    "langchain": "^0.3.20",
     "mammoth": "^1.9.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
-    "ollama": "^0.5.14",
-    "openai": "^4.93.0",
     "pdf-parse": "^1.1.1",
     "pg": "^8.13.1",
     "querystring": "^0.2.1",
     "stream": "^0.0.3",
-    "txt-reader": "^1.4.5"
+    "uuid": "^11.1.0"
   }
 }

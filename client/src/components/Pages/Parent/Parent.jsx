@@ -23,7 +23,7 @@ import { useDropzone } from "react-dropzone"; // Import react-dropzone for drag-
 import { Sidebar } from "../../Sidebar/Sidebar"; // Import Sidebar component
 import { Avatar } from "../../Profile/Avatar"; // Import Avatar component
 
-const API_URL = "http://localhost:8000/"; // Update with your backend URL
+const API_URL = "http://localhost:8000/"; // Backend URL
 
 function Parent(props) {
   const { type = "all" } = props; // Default to "all" if no type is provided
@@ -119,7 +119,7 @@ function Parent(props) {
       }
 
       const response = await axios.get(
-        `http://localhost:8000/file/download/${fileId}`, // Download the file by ID
+        `${API_URL}file/download/${fileId}`, // Download the file by ID
         {
           responseType: "blob",
           headers: {
@@ -151,7 +151,7 @@ function Parent(props) {
 
     try {
       const response = await axios.delete(
-        `http://localhost:8000/file/delete/${fileId}`, // Delete the file by ID
+        `${API_URL}file/delete/${fileId}`, // Delete the file by ID
         {
           headers: {
             Authorization: `Bearer ${token}`, // Include the token in the request
@@ -269,7 +269,7 @@ function Parent(props) {
 
     try {
       const response = await axios.patch(
-        `http://localhost:8000/file/edit/${editingFile.id}`, // Update the file title by ID
+        `${API_URL}file/edit/${editingFile.id}`, // Update the file title by ID
         { title: newTitle } // Send the new title in the request body
       );
 
@@ -294,19 +294,6 @@ function Parent(props) {
           <h1 className="text-2xl font-semibold">{props.title}</h1>
           {/* Search Input */}
           <div className="flex items-center gap-1">
-            <input
-              id="imageSearch"
-              name="imageSearch"
-              type="file"
-              accept="image/*"
-              className="hidden"
-            />
-            <label
-              htmlFor="imageSearch"
-              className="w-[48px] h-[48px] flex items-center justify-center bg-ternary border rounded-sm border-[#c4c4c4] cursor-pointer"
-            >
-              <PictureOutlined />
-            </label>
             <Input
               placeholder="Search in infinite cloud"
               value={searchQuery}

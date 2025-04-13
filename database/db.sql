@@ -33,15 +33,26 @@ CREATE TABLE file_info (
   title VARCHAR(255) NOT NULL,
   fileExtension VARCHAR(50),
   size BIGINT NOT NULL,
+  content TEXT,
   created_at DATE DEFAULT CURRENT_DATE
 );
 
 -- Table to store chunk IDs associated with each file
 CREATE TABLE chunk_id (
-    id SERIAL PRIMARY KEY,          -- Unique identifier for the chunk entry
-    file_id INT REFERENCES file_info(id) ON DELETE CASCADE, -- Foreign key to file_info
-    chunk_id VARCHAR(255) NOT NULL,  -- Chunk ID (e.g., from Google Drive or Dropbox)
-    type VARCHAR(50) NOT NULL       -- Type of storage (e.g., "google" or "dropbox")
+    id SERIAL PRIMARY KEY,
+    file_id INT REFERENCES file_info(id) ON DELETE CASCADE,
+    chunk_id VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL
+);
+
+-- Table to store chunk metadata with a foreign key to file_info
+CREATE TABLE document_chunks (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES user_info(id) ON DELETE CASCADE,
+  filename VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  embedding DOUBLE PRECISION[],
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE user_otps (

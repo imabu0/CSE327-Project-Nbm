@@ -228,8 +228,15 @@ async function getQueryEmbedding(query) {
 
 async function findRelevantChunks(userId, queryEmbedding) {
   try {
-    // Log the search query parameters
-    console.log("Search query parameters:", {
+    if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length !== 384) {
+      throw new Error("Invalid or missing embedding vector.");
+    }
+
+    console.log("USER:", userId);
+
+    console.log("COLLECTION_NAME:", COLLECTION_NAME, typeof COLLECTION_NAME);
+
+    const searchPayload = {
       collection_name: COLLECTION_NAME,
       vector: queryEmbedding,
       limit: 5,
@@ -241,40 +248,26 @@ async function findRelevantChunks(userId, queryEmbedding) {
           },
         ],
       },
-    });
+    };
 
-    // Perform the search in Qdrant
-    const result = await qdrant.search({
-      collection_name: COLLECTION_NAME,
-      vector: queryEmbedding, // Ensure this is a valid float[] of 384 dimensions
-      limit: 5,
-      filter: {
-        must: [
-          {
-            key: "userId",
-            match: { value: String(userId) },
-          },
-        ],
-      },
-    });
+    console.log("Qdrant Search Payload:", searchPayload);
 
-    // Check if the result is in the expected format
+
+    // ✅ Fix: Pass collection_name as separate string argument
+    const result = await qdrant.search(COLLECTION_NAME, searchPayload);
+    // ✅ FIX: Pass second argument as empty object
+    //const result = await qdrant.search(searchPayload, {});
+
     if (!result || !Array.isArray(result)) {
-      throw new Error('Unexpected result format');
+      throw new Error("Qdrant search result is invalid or empty.");
     }
 
-    console.log("Search result:", result);
-
-    // Map and return the payload of the points found
     return result.map((point) => point.payload);
   } catch (err) {
-    console.error("Error searching Qdrant:", err.message);
-    // Ensure the error doesn't try to log an undefined result
-    throw err; // Re-throw the error for further handling
+    console.error("Error searching Qdrant:", err.message, err.stack);
+    throw err;
   }
 }
-
-
 
 
 
@@ -415,7 +408,9 @@ router.post("/query", protectRoute, async (req, res) => {
     const { query } = req.body;
     const userId = req.user.id;
 
+    console.log("User ID:", query);
     const queryEmbedding = await getQueryEmbedding(query);
+    console.log("Query embedding:", queryEmbedding);
     const chunks = await findRelevantChunks(userId, queryEmbedding);
 
     const context = chunks.map(

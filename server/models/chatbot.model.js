@@ -1,405 +1,321 @@
-const fs = require("fs");
-const path = require("path");
-const pdfParse = require("pdf-parse");
-const mammoth = require("mammoth");
-const axios = require("axios");
-const { v4: uuidv4 } = require("uuid");
-const GoogleBucket = require("./google.model.js");
-const DropboxBucket = require("./dropbox.model.js");
+const axios = require('axios');
+const { QdrantClient } = require("@qdrant/js-client-rest");
+const { RecursiveCharacterTextSplitter } = require("langchain/text_splitter");
+const pdf = require('pdf-parse');
+const docx = require('docx');
+const fs = require('fs');
+const path = require('path');
+const { pool } = require('../config/db.js');
+const GoogleBucket = require('./google.model.js');
+const DropboxBucket = require('./dropbox.model.js');
+
+// Singleton pattern for transformers
+let transformers;
+let pipeline;
+
+async function getTransformers() {
+  if (!transformers) {
+    // Dynamic import of ESM module
+    transformers = await import('@xenova/transformers');
+    pipeline = transformers.pipeline;
+    // Warm up the model
+    await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+  }
+  return { pipeline, transformers };
+}
 
 class Chatbot {
   constructor() {
-    this.googleBucket = new GoogleBucket();
-    this.dropboxBucket = new DropboxBucket();
-    this.tempDir = path.join(__dirname, "temp");
+    this.lmStudioUrl = 'http://127.0.0.1:1234/v1';
+    this.qdrant = new QdrantClient({ 
+      url: 'https://a0a6bd9d-7ce7-4dc7-b419-50fa3b219edf.us-east4-0.gcp.cloud.qdrant.io',
+      apiKey: process.env.QDRANT_API_KEY
+    });
+    this.embedder = null;
+    this.textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 1000,
+      chunkOverlap: 200
+    });
+    this.googleDrive = new GoogleBucket();
+    this.dropbox = new DropboxBucket();
+    
+    this.axiosInstance = axios.create({
+      baseURL: this.lmStudioUrl,
+      timeout: 30000
+    });
 
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
-    }
+    // Initialize embeddings model in background
+    this.initializeEmbedder().catch(err => {
+      console.error('Failed to initialize embedder:', err);
+    });
   }
 
-  async cleanTempFiles() {
-    try {
-      const files = await fs.promises.readdir(this.tempDir);
-      await Promise.all(
-        files.map((file) =>
-          fs.promises.unlink(path.join(this.tempDir, file)).catch(() => {})
-        )
+  async initializeEmbedder() {
+    if (!this.embedder) {
+      const { pipeline } = await getTransformers();
+      this.embedder = await pipeline(
+        'feature-extraction', 
+        'Xenova/all-MiniLM-L6-v2'
       );
+    }
+    return this.embedder;
+  }
+
+  async createEmbeddings(text) {
+    try {
+      const embedder = await this.initializeEmbedder();
+      const output = await embedder(text, {
+        pooling: 'mean',
+        normalize: true
+      });
+      return Array.from(output.data);
     } catch (error) {
-      console.error("Error cleaning temp files:", error);
+      console.error('Embedding error:', error);
+      throw new Error('Failed to create embeddings');
     }
   }
 
-  async extractText(filePath, fileSource = "local", userId = 6) {
+  async downloadFileFromCloud(fileId, fileType, userId) {
+    const tempDir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    
+    const tempFilePath = path.join(tempDir, `${fileId}.${fileType}`);
+    
     try {
-      switch (fileSource) {
-        case "local":
-          return await this.extractTextFromFile(filePath);
+      const fileInfo = await this.getFileStorageInfo(fileId, userId);
+      
+      if (fileInfo.storage_type === 'google') {
+        await this.googleDrive.downloadFile(fileInfo.cloud_id, tempFilePath, userId);
+      } else {
+        await this.dropbox.downloadFile(fileInfo.cloud_id, tempFilePath, userId);
+      }
+      
+      return tempFilePath;
+    } catch (error) {
+      // Clean up if error occurs
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      throw error;
+    }
+  }
 
-        case "googleDrive": {
-          if (!userId)
-            throw new Error("User ID is required for Google Drive files");
+  async getFileStorageInfo(fileId, userId) {
+    const client = await pool.connect();
+    try {
+      const res = await client.query(
+        'SELECT storage_type, cloud_id FROM user_files WHERE id = $1 AND user_id = $2',
+        [fileId, userId]
+      );
+      if (res.rows.length === 0) throw new Error('File not found');
+      return res.rows[0];
+    } finally {
+      client.release();
+    }
+  }
 
-          const fileContent = await this.googleBucket.downloadFile(
-            filePath,
-            null,
-            userId
-          );
-
-          if (
-            !fileContent ||
-            (Buffer.isBuffer(fileContent) && fileContent.length === 0)
-          ) {
-            throw new Error("Received empty content from Google Drive");
+  async initializeUserCollection(userId) {
+    const collectionName = `user_${userId}_docs`;
+    try {
+      await this.qdrant.getCollection(collectionName);
+    } catch (error) {
+      if (error.status === 404) {
+        await this.qdrant.createCollection(collectionName, {
+          vectors: {
+            size: 384, // MiniLM-L6-v2 embedding size
+            distance: "Cosine",
+            on_disk: true
           }
+        });
+      } else {
+        throw error;
+      }
+    }
+    return collectionName;
+  }
 
-          return typeof fileContent === "string"
-            ? fileContent
-            : await this.extractTextFromBuffer(fileContent);
+  async storeDocumentChunks(collectionName, fileId, fileName, chunks) {
+    const points = [];
+    
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const embedding = await this.createEmbeddings(chunk);
+      
+      points.push({
+        id: `${fileId}_${i}`,
+        vector: embedding,
+        payload: {
+          fileId,
+          fileName,
+          text: chunk,
+          chunkIndex: i
         }
+      });
+    }
+    
+    await this.qdrant.upsert(collectionName, {
+      wait: true,
+      points
+    });
+  }
 
-        case "dropbox": {
-          if (!userId) throw new Error("User ID is required for Dropbox files");
-
-          const fileContent = await this.dropboxBucket.downloadFile(
-            filePath,
-            userId
-          );
-
-          if (
-            !fileContent ||
-            (Buffer.isBuffer(fileContent) && fileContent.length === 0)
-          ) {
-            throw new Error("Received empty content from Dropbox");
-          }
-
-          return typeof fileContent === "string"
-            ? fileContent
-            : await this.extractTextFromBuffer(fileContent);
-        }
-
+  async extractTextFromFile(filePath, fileExtension) {
+    try {
+      const data = fs.readFileSync(filePath);
+      
+      switch(fileExtension.toLowerCase()) {
+        case 'pdf':
+          const pdfData = await pdf(data);
+          return pdfData.text;
+        case 'docx':
+          const doc = await docx.Document.load(data);
+          return doc.paragraphs.map(p => p.text).join('\n');
+        case 'txt':
+          return data.toString();
         default:
-          throw new Error(`Unsupported file source: ${fileSource}`);
+          throw new Error(`Unsupported file type: ${fileExtension}`);
       }
     } catch (error) {
-      console.error(`Error extracting text from ${fileSource}:`, error);
-      throw new Error(`Failed to extract text: ${error.message}`);
+      console.error('Error extracting text:', error);
+      throw error;
     }
   }
 
-  async extractTextFromBufferWithRetry(buffer, retries = 3) {
-    for (let i = 0; i < retries; i++) {
-      try {
-        return await this.extractTextFromBuffer(buffer);
-      } catch (error) {
-        if (i === retries - 1) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-      }
-    }
-  }
-
-  async extractTextFromBuffer(buffer) {
-    if (!buffer || !Buffer.isBuffer(buffer)) {
-      throw new Error("Invalid buffer provided");
-    }
-
-    if (this.isPDFBuffer(buffer)) {
-      try {
-        const data = await pdfParse(buffer);
-        return data.text || "";
-      } catch (error) {
-        console.error("Error parsing PDF buffer:", error);
-        throw new Error("Failed to parse PDF: " + error.message);
-      }
-    }
-
-    if (this.isDOCXBuffer(buffer)) {
-      try {
-        const result = await mammoth.extractRawText({ buffer });
-        return result.value || "";
-      } catch (error) {
-        console.error("Error parsing DOCX buffer:", error);
-        throw new Error("Failed to parse DOCX: " + error.message);
-      }
-    }
-
-    // Fallback to plain text
+  async processUserFiles(userId) {
+    const client = await pool.connect();
+    const collectionName = await this.initializeUserCollection(userId);
+    
     try {
-      return buffer.toString("utf8");
-    } catch (error) {
-      console.error("Error converting buffer to text:", error);
-      throw new Error("Unsupported file type");
-    }
-  }
-
-  isPDFBuffer(buffer) {
-    return buffer.length > 4 && buffer.slice(0, 4).toString("ascii") === "%PDF";
-  }
-
-  isDOCXBuffer(buffer) {
-    return (
-      buffer.length > 4 && buffer.slice(0, 4).toString("hex") === "504b0304"
-    );
-  }
-
-  async extractTextFromFile(filePath) {
-    try {
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found at path: ${filePath}`);
-      }
-
-      const stats = fs.statSync(filePath);
-      if (stats.size === 0) {
-        throw new Error("File is empty");
-      }
-
-      const ext = path.extname(filePath).toLowerCase();
-
-      if (ext === ".pdf") {
-        const dataBuffer = fs.readFileSync(filePath);
-        return await this.extractTextFromBuffer(dataBuffer);
-      }
-
-      if (ext === ".docx") {
-        const result = await mammoth.extractRawText({ path: filePath });
-        return result.value || "";
-      }
-
-      if (ext === ".txt") {
-        return fs.readFileSync(filePath, "utf8");
-      }
-
-      throw new Error(`Unsupported file type: ${ext}`);
-    } catch (error) {
-      console.error(`Error extracting text from file ${filePath}:`, error);
-      throw new Error(`Failed to extract text: ${error.message}`);
-    }
-  }
-
-  chunkText(text, maxWords = 200) {
-    try {
-      if (!text || typeof text !== "string") return [];
-
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const chunks = [];
-      let currentChunk = [];
-      let currentWordCount = 0;
-
-      for (const sentence of sentences) {
-        const wordCount = sentence.split(/\s+/).length;
-
-        if (
-          currentWordCount + wordCount > maxWords &&
-          currentChunk.length > 0
-        ) {
-          chunks.push(currentChunk.join(" "));
-          currentChunk = [];
-          currentWordCount = 0;
-        }
-
-        currentChunk.push(sentence);
-        currentWordCount += wordCount;
-      }
-
-      if (currentChunk.length > 0) {
-        chunks.push(currentChunk.join(" "));
-      }
-
-      return chunks;
-    } catch (error) {
-      console.error("Error chunking text:", error);
-      return [];
-    }
-  }
-
-  cosineSimilarity(a, b) {
-    if (!a || !b || a.length !== b.length) return 0;
-    try {
-      const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
-      const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-      const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-      return magA * magB > 0 ? dot / (magA * magB) : 0;
-    } catch (error) {
-      console.error("Error calculating cosine similarity:", error);
-      return 0;
-    }
-  }
-
-  async getEmbedding(text, retries = 3) {
-    if (!text || typeof text !== "string") {
-      throw new Error("Invalid text input");
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENAI_API_KEY environment variable is not set");
-    }
-
-    for (let i = 0; i < retries; i++) {
-      try {
-        const res = await axios.post(
-          "https://api.openai.com/v1/embeddings",
-          { input: text, model: "text-embedding-3-small" },
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 10000,
-          }
-        );
-
-        return res.data?.data?.[0]?.embedding;
-      } catch (error) {
-        if (i === retries - 1) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-      }
-    }
-  }
-
-  async searchChunks(chunks, question, topN = 3) {
-    // Validate inputs
-    if (!Array.isArray(chunks)) {
-      throw new Error("Chunks must be an array");
-    }
-    if (!chunks.length) return [];
-    if (typeof question !== "string" || !question.trim()) {
-      throw new Error("Question must be a non-empty string");
-    }
-
-    // Embedding cache to avoid duplicate API calls
-    const embeddingCache = new Map();
-
-    // Get question embedding with retry
-    const questionEmbedding = await this.getEmbeddingWithRetry(question);
-    if (!questionEmbedding?.length) {
-      throw new Error("Failed to get question embedding");
-    }
-
-    const scoredChunks = [];
-    const batchSize = 3; // Reduced batch size to avoid rate limits
-    const delayBetweenBatches = 200; // 200ms between batches
-
-    try {
-      for (let i = 0; i < chunks.length; i += batchSize) {
-        // Rate limiting delay
-        if (i > 0) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, delayBetweenBatches)
+      const filesQuery = `
+        SELECT id, title, file_extension, storage_type, cloud_id 
+        FROM user_files 
+        WHERE user_id = $1`;
+      const filesRes = await client.query(filesQuery, [userId]);
+      
+      for (const file of filesRes.rows) {
+        let tempFilePath;
+        try {
+          tempFilePath = await this.downloadFileFromCloud(
+            file.id, 
+            file.file_extension, 
+            userId
           );
+          
+          const text = await this.extractTextFromFile(tempFilePath, file.file_extension);
+          const chunks = await this.textSplitter.splitText(text);
+          
+          await this.storeDocumentChunks(collectionName, file.id, file.title, chunks);
+        } finally {
+          if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
         }
+      }
+      
+      return { success: true, processedFiles: filesRes.rows.length };
+    } catch (error) {
+      console.error('Error processing files:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 
-        const batch = chunks.slice(i, i + batchSize);
-
-        // Process batch with individual error handling
-        const batchResults = await Promise.all(
-          batch.map(async (chunk, index) => {
-            try {
-              if (typeof chunk !== "string" || !chunk.trim()) {
-                return { chunk, score: 0, error: "Invalid chunk content" };
-              }
-
-              // Check cache first
-              const cacheKey = chunk.substring(0, 100);
-              let embedding;
-
-              if (embeddingCache.has(cacheKey)) {
-                embedding = embeddingCache.get(cacheKey);
-              } else {
-                embedding = await this.getEmbeddingWithRetry(chunk);
-                embeddingCache.set(cacheKey, embedding);
-              }
-
-              if (!embedding) {
-                return { chunk, score: 0, error: "Failed to get embedding" };
-              }
-
-              const score = this.cosineSimilarity(questionEmbedding, embedding);
-              return { chunk, score };
-            } catch (error) {
-              console.error(
-                `Error processing chunk ${i + index}:`,
-                error.message
-              );
-              return { chunk, score: 0, error: error.message };
+  async searchChunks(collectionName, query, fileFilter = null) {
+    const queryEmbedding = await this.createEmbeddings(query);
+    
+    const searchParams = {
+      vector: queryEmbedding,
+      limit: 5,
+      with_payload: true,
+      with_vectors: false
+    };
+    
+    if (fileFilter) {
+      searchParams.filter = {
+        must: [
+          {
+            key: "fileId",
+            match: {
+              value: fileFilter
             }
-          })
-        );
-
-        scoredChunks.push(...batchResults);
-      }
-
-      // Filter and sort results
-      const validChunks = scoredChunks.filter((item) => item.score > 0);
-      if (!validChunks.length) {
-        console.warn("No valid chunks with positive similarity score found");
-        return [];
-      }
-
-      return validChunks
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topN)
-        .map((item) => item.chunk);
-    } catch (error) {
-      console.error("Error in searchChunks:", error);
-      throw new Error(`Search failed: ${error.message}`);
+          }
+        ]
+      };
     }
+    
+    const results = await this.qdrant.search(collectionName, searchParams);
+    
+    return results.map(result => ({
+      fileId: result.payload.fileId,
+      fileName: result.payload.fileName,
+      text: result.payload.text,
+      score: result.score
+    }));
   }
 
-  // Helper function with exponential backoff
-  async getEmbeddingWithRetry(text, maxRetries = 3) {
-    let retries = 0;
-    while (retries < maxRetries) {
-      try {
-        return await this.getEmbedding(text);
-      } catch (error) {
-        if (error.response?.status !== 429 || retries >= maxRetries)
-          throw error;
-        const delay = Math.pow(2, retries) * 1000;
-        console.log(`Rate limited - retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        retries++;
-      }
-    }
-    throw new Error("Max retries reached for embedding");
-  }
+  async generateResponse(query, contextChunks) {
+    const context = contextChunks.map(c => c.text).join('\n\n---\n\n');
 
-  async askGPT(contextChunks, question) {
+    const prompt = `
+      Answer the user's question STRICTLY based on these documents.
+      If the answer isn't here, say "I couldn't find an answer."
+
+      DOCUMENTS:
+      ${context}
+
+      QUESTION: 
+      ${query}
+
+      ANSWER:
+    `;
+
     try {
-      if (!contextChunks?.length || !question) {
-        throw new Error("Missing context or question");
-      }
-
-      const prompt = `Document Context:\n${contextChunks
-        .map((chunk, i) => `[Context Part ${i + 1}]:\n${chunk}`)
-        .join("\n\n")}
-
-Question: ${question}
-
-Please answer the question based on the provided document context. If the answer isn't found in the context, respond with "I couldn't find the answer in the document." Be concise but thorough.`;
-
-      const res = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
-          max_tokens: 500,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
+      const response = await this.axiosInstance.post('/chat/completions', {
+        model: 'mistral-7b',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You answer questions using ONLY the provided documents.' 
           },
-          timeout: 30000,
-        }
-      );
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+      });
 
-      return res.data.choices[0]?.message?.content || "No response from AI";
+      return {
+        answer: response.data.choices[0].message.content,
+        sources: contextChunks.map(c => ({
+          fileId: c.fileId,
+          fileName: c.fileName,
+          score: c.score
+        }))
+      };
     } catch (error) {
-      console.error("Error asking GPT:", error);
-      return "Sorry, I encountered an error while processing your question.";
+      console.error('LM Studio error:', error.response?.data || error.message);
+      return {
+        answer: "Sorry, I encountered an error processing your request.",
+        sources: []
+      };
+    }
+  }
+
+  async chatWithDocuments(userId, query, fileIdFilter = null) {
+    try {
+      const collectionName = `user_${userId}_docs`;
+      
+      const relevantChunks = await this.searchChunks(collectionName, query, fileIdFilter);
+      
+      if (relevantChunks.length === 0) {
+        return {
+          answer: "I couldn't find any relevant information in your documents.",
+          sources: []
+        };
+      }
+      
+      return await this.generateResponse(query, relevantChunks);
+    } catch (error) {
+      console.error('Chat error:', error);
+      throw error;
     }
   }
 }

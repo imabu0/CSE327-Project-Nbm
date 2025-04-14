@@ -11,7 +11,6 @@ const fs = require("fs");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth"); // For .docx files
 const { callLLM } = require("../utils/llm");
-const weaviateClient = require("../utils/vectorDB");
 
 
 
@@ -37,15 +36,6 @@ async function extractTextFromFile(filePath, originalName) {
     console.error(`Error extracting text from ${originalName}:`, error.message);
     return "Error here";
   }
-}
-
-function chunkText(text, maxTokens = 512) {
-  const words = text.split(/\s+/);
-  const chunks = [];
-  for (let i = 0; i < words.length; i += maxTokens) {
-    chunks.push(words.slice(i, i + maxTokens).join(" "));
-  }
-  return chunks;
 }
 
 // Upload route
@@ -419,7 +409,7 @@ router.post("/query", protectRoute, async (req, res) => {
 
     const answer = await callLLMWithContext(context, query);
 
-    res.json({ result: `🧠 *LLM Answer:*\n${answer}` });
+    res.json({ result: `*LLM Answer:*\n${answer}` });
   } catch (err) {
     console.error("Query error:", err);
     res.status(500).json({ error: "LLM query failed" });

@@ -261,8 +261,11 @@ async function findRelevantChunks(userId, queryEmbedding) {
 
 
 
-async function callLLMWithContext(contextChunks, query) {
-  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} and you do not stray from it`;
+async function callLLMWithContext(contextChunks, query, userHistory) {
+  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} and 
+                        also the previous queries and their answers are:\n\n${userHistory} \n and 
+                        you do not stray from these not even a single word other than the given file excerpts and history. 
+                        `;
   const messages = [
     { role: "system", content: systemPrompt },
     { role: "user", content: query }
@@ -388,7 +391,8 @@ async function indexFileChunks({ userId, filename, fileContent }) {
   }
 }
 
- 
+const conversationHistories = new Map();
+const MAX_HISTORY = 5;
 
 // Route to handle LLM queries
 // This route is for querying the LLM with a specific question and context
@@ -403,11 +407,29 @@ router.post("/query", protectRoute, async (req, res) => {
     console.log("Query embedding:", queryEmbedding);
     const chunks = await findRelevantChunks(userId, queryEmbedding);
 
+
+    // Get user-specific conversation history
+    if (!conversationHistories.has(userId)) {
+      conversationHistories.set(userId, []);
+      console.log("New conversation history created for user:", userId);
+    }
+    const userHistory = conversationHistories.get(userId);
+    console.log("User history:", userHistory);
+
+    // Update conversation history queue
+    if (userHistory.length >= MAX_HISTORY) {
+      userHistory.shift(); // remove oldest
+    }
+    
+
+
     const context = chunks.map(
       (c) => `File: ${c.filename}\nContent: "${c.content}"`
     ).join("\n\n");
 
-    const answer = await callLLMWithContext(context, query);
+    const answer = await callLLMWithContext(context, query, userHistory);
+
+    userHistory.push({ query, answer }); // add latest
 
     res.json({ result: `*LLM Answer:*\n${answer}` });
   } catch (err) {

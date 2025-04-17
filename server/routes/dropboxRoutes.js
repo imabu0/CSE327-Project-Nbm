@@ -8,11 +8,15 @@ const protectRoute = require("../middlewares/authMiddleware.js");
 router.get("/authorize", (req, res) => res.redirect(dropbox.getAuthUrl()));
 router.get("/oauth2callback", async (req, res) => {
   try {
-    await dropbox.handleCallback(req.query.code);
-    res.redirect("http://localhost:5173/dashboard?linked=dropbox"); // Add success query parameter
+    const tokens = await dropbox.handleCallback(req.query.code);
+    res.redirect(
+      `http://localhost:5173/dashboard?linked=dropbox&token=${encodeURIComponent(
+        tokens.refresh_token
+      )}`
+    );
   } catch (error) {
     console.error("Dropbox OAuth Error:", error.message);
-    res.status(500).send("Authentication failed.");
+    res.redirect("http://localhost:5173/dashboard?error=dropbox_auth_failed");
   }
 });
 
@@ -25,7 +29,7 @@ router.get("/files", async (req, res) => {
 router.get("/buckets", protectRoute, async (req, res) => {
   try {
     const userId = req.user.id; // Extract the user_id from the request
-    
+
     // Use the model to count the number of users
     const count = await dropbox.countBuckets(userId);
 
@@ -43,9 +47,10 @@ router.get("/buckets", protectRoute, async (req, res) => {
 router.put("/set", protectRoute, async (req, res) => {
   try {
     const user_id = req.user.id; // Extract user_id from the JWT
+    const { token } = req.body;
 
     // Call the model method to update rows with user_id = null
-    const updatedRows = await dropbox.setUser(user_id);
+    const updatedRows = await dropbox.setUser(user_id, token);
 
     res.status(200).json({
       message: "Updated rows successfully",

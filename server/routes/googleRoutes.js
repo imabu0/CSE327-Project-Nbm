@@ -8,11 +8,15 @@ const protectRoute = require("../middlewares/authMiddleware.js");
 router.get("/authorize", (req, res) => res.redirect(google.getAuthUrl()));
 router.get("/oauth2callback", async (req, res) => {
   try {
-    await google.handleCallback(req.query.code);
-    res.redirect("http://localhost:5173/dashboard?linked=google"); // Add success query parameter
+    const token = await google.handleCallback(req.query.code);
+    res.redirect(
+      `http://localhost:5173/dashboard?linked=google&token=${encodeURIComponent(
+        token
+      )}`
+    );
   } catch (error) {
     console.error("Google OAuth Error:", error.message);
-    res.status(500).send("Authentication failed.");
+    res.redirect("http://localhost:5173/dashboard?error=auth_failed");
   }
 });
 
@@ -43,9 +47,10 @@ router.get("/buckets", protectRoute, async (req, res) => {
 router.put("/set", protectRoute, async (req, res) => {
   try {
     const user_id = req.user.id; // Extract user_id from the JWT
+    const { token } = req.body;
 
     // Call the model method to update rows with user_id = null
-    const updatedRows = await google.setUser(user_id);
+    const updatedRows = await google.setUser(user_id, token);
 
     res.status(200).json({
       message: "Updated rows successfully",

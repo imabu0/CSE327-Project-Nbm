@@ -25,27 +25,19 @@ export const Dashboard = () => {
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
-    if (queryParams.get("linked") === "google") {
-      setIsGoogleModalOpen(true);
-    } else if (queryParams.get("linked") === "dropbox") {
-      setIsDropboxModalOpen(true);
-    }
+    if (queryParams.get("linked") === "google") setIsGoogleModalOpen(true);
+    if (queryParams.get("linked") === "dropbox") setIsDropboxModalOpen(true);
   }, [location]);
 
   const handleSuccessModalOk = (bucket) => {
-    let api =
-      bucket === "google"
-        ? "http://localhost:8000/google/set"
-        : "http://localhost:8000/dropbox/set";
+    const refreshToken = new URLSearchParams(location.search).get("token");
+    if (!refreshToken) return alert("Missing token!");
+
     axios
       .put(
-        api,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `http://localhost:8000/${bucket}/set`,
+        { token: refreshToken },
+        { headers: { Authorization: `Bearer ${token}` } }
       )
       .then(() => {
         setIsGoogleModalOpen(false);
@@ -53,10 +45,7 @@ export const Dashboard = () => {
         navigate("/dashboard", { replace: true });
         window.location.reload();
       })
-      .catch((error) => {
-        console.error("Error updating user:", error);
-        alert("Failed to update user. Please try again.");
-      });
+      .catch((error) => alert("Error: " + error.message));
   };
 
   const fetchCounts = async () => {

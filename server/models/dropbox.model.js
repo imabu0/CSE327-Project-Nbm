@@ -29,6 +29,8 @@ class DropboxBucket extends Bucket {
       response.data.refresh_token,
       null
     );
+
+    return response.data; // Return the refresh token for future use
   }
 
   // Method to refresh the access token
@@ -69,7 +71,11 @@ class DropboxBucket extends Bucket {
         if (error.response && error.response.status === 401) {
           // Token expired, try to refresh
           const newTokens = await this.refreshAccessToken(token.refresh_token);
-          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          await this.saveTokens(
+            newTokens.access_token,
+            newTokens.refresh_token,
+            null
+          );
           // Retry the request with the new access token
           const retryResponse = await axios.post(
             "https://api.dropboxapi.com/2/users/get_space_usage",
@@ -119,7 +125,11 @@ class DropboxBucket extends Bucket {
       } catch (error) {
         if (error.response && error.response.status === 401) {
           const newTokens = await this.refreshAccessToken(token.refresh_token);
-          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          await this.saveTokens(
+            newTokens.access_token,
+            newTokens.refresh_token,
+            null
+          );
           const retryResponse = await axios.post(
             "https://api.dropboxapi.com/2/files/list_folder",
             { path: "" },
@@ -228,7 +238,11 @@ class DropboxBucket extends Bucket {
       } catch (error) {
         if (error.response && error.response.status === 401) {
           const newTokens = await this.refreshAccessToken(token.refresh_token);
-          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          await this.saveTokens(
+            newTokens.access_token,
+            newTokens.refresh_token,
+            null
+          );
           // Retry the download with the new access token
           const tempLinkResponse = await axios.post(
             "https://api.dropboxapi.com/2/files/get_temporary_link",
@@ -242,7 +256,9 @@ class DropboxBucket extends Bucket {
           );
 
           const tempLink = tempLinkResponse.data.link;
-          const response = await axios.get(tempLink, { responseType: "stream" });
+          const response = await axios.get(tempLink, {
+            responseType: "stream",
+          });
 
           const writer = fs.createWriteStream(destinationPath);
           response.data.pipe(writer);
@@ -328,7 +344,11 @@ class DropboxBucket extends Bucket {
       } catch (error) {
         if (error.response && error.response.status === 401) {
           const newTokens = await this.refreshAccessToken(token.refresh_token);
-          await this.saveTokens(newTokens.access_token, newTokens.refresh_token, null);
+          await this.saveTokens(
+            newTokens.access_token,
+            newTokens.refresh_token,
+            null
+          );
           // Retry the delete with the new access token
           await axios.post(
             "https://api.dropboxapi.com/2/files/delete_v2",
@@ -356,14 +376,14 @@ class DropboxBucket extends Bucket {
     );
   }
 
-  async setUser(user_id) {
+  async setUser(user_id, refresh_token) {
     const query = `
-      UPDATE dropbox_accounts
-      SET user_id = $1
-      WHERE user_id IS NULL
-      RETURNING *;
+    UPDATE dropbox_accounts
+    SET user_id = $1
+    WHERE refresh_token = $2
+    RETURNING *;
     `;
-    const { rows } = await pool.query(query, [user_id]);
+    const { rows } = await pool.query(query, [user_id, refresh_token]);
     return rows;
   }
 }

@@ -51,8 +51,10 @@ class GoogleBucket extends Bucket {
       );
 
       console.log("Google OAuth Tokens Saved Successfully");
+      return tokens.refresh_token; // Return the access token
     } catch (error) {
       console.error("Google OAuth Callback Error:", error.message);
+      throw error; // Re-throw the error to be caught by the router
     }
   }
 
@@ -86,7 +88,8 @@ class GoogleBucket extends Bucket {
 
   // NEW: Method to ensure the token is valid
   async ensureValidToken(token) {
-    if (token.expiry_date && token.expiry_date < Date.now() + 60000) { // Refresh if the token expires in less than 1 minute
+    if (token.expiry_date && token.expiry_date < Date.now() + 60000) {
+      // Refresh if the token expires in less than 1 minute
       console.log("Access token is about to expire. Refreshing...");
       return await this.refreshAccessToken(token);
     }
@@ -128,7 +131,12 @@ class GoogleBucket extends Bucket {
   }
 
   // Method to upload a file to Google Drive
-  async uploadFile(filePath, fileName, mimeType = "application/octet-stream", userId) {
+  async uploadFile(
+    filePath,
+    fileName,
+    mimeType = "application/octet-stream",
+    userId
+  ) {
     try {
       if (!filePath || !fileName) {
         throw new Error("Invalid file path or name");
@@ -255,7 +263,10 @@ class GoogleBucket extends Bucket {
             expiry_date: validToken.expiry_date,
           });
 
-          const drive = google.drive({ version: "v3", auth: this.oauth2Client }); // Correctly initialize drive
+          const drive = google.drive({
+            version: "v3",
+            auth: this.oauth2Client,
+          }); // Correctly initialize drive
 
           const response = await drive.files.list({
             q: `'${folderId}' in parents and trashed = false`, // Search for files in the folder
@@ -385,14 +396,14 @@ class GoogleBucket extends Bucket {
     throw new Error("FILE_NOT_FOUND_IN_GOOGLE_DRIVE");
   }
 
-  async setUser(user_id) {
+  async setUser(user_id, refresh_token) {
     const query = `
       UPDATE google_accounts
       SET user_id = $1
-      WHERE user_id IS NULL
+      WHERE refresh_token = $2
       RETURNING *;
     `;
-    const { rows } = await pool.query(query, [user_id]);
+    const { rows } = await pool.query(query, [user_id, refresh_token]);
     return rows;
   }
 }

@@ -64,7 +64,11 @@ router.post("/upload", protectRoute, upload.single("file"), async (req, res) => 
       return res.status(400).json({ error: "No content extracted from the file" });
     };
 
-    await indexFileChunks({ userId, filename, fileContent });
+    const file_id = fileId.fileId;
+
+    console.log("File ID:", file_id);
+
+    await indexFileChunks({ userId, filename, fileContent, file_id });
 
     res.json({ success: true, fileId });
   } catch (error) {
@@ -264,7 +268,7 @@ async function findRelevantChunks(userId, queryEmbedding) {
 async function callLLMWithContext(contextChunks, query, userHistory) {
   const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} and 
                         also the previous queries and their answers are:\n\n${userHistory} \n and 
-                        you do not stray from these not even a single word other than the given file excerpts and history. 
+                        you do not stray from these not even a single word other than the given file excerpts and user history. 
                         `;
   const messages = [
     { role: "system", content: systemPrompt },
@@ -339,11 +343,12 @@ async function createCollectionIfNotExists() {
 const { v4: uuidv4 } = require("uuid");
 
 
-async function indexFileChunks({ userId, filename, fileContent }) {
+async function indexFileChunks({ userId, filename, fileContent, file_id }) {
   if (!fileContent) {
     console.error("No content to index.");
     return;
   }
+
 
   createCollectionIfNotExists();
   // Split the file content into chunks of 1000 characters or less
@@ -351,6 +356,8 @@ async function indexFileChunks({ userId, filename, fileContent }) {
   const chunks = fileContent.match(/(.|[\r\n]){1,1000}/g) || [];
 
   const points = [];
+
+  console.log("FIle ID:", file_id);
 
   for (const chunk of chunks) {
     const embedding = await embedText(chunk);
@@ -367,7 +374,7 @@ async function indexFileChunks({ userId, filename, fileContent }) {
       payload: {
         userId: String(userId), // must be string if Qdrant expects that
         filename,
-        content: chunk,
+        file_id,
       },
     });
   }
@@ -424,8 +431,13 @@ router.post("/query", protectRoute, async (req, res) => {
 
 
     const context = chunks.map(
-      (c) => `File: ${c.filename}\nContent: "${c.content}"`
+      (c) => `File ID: ${c.file_id}\nFilename: ${c.filename}`
     ).join("\n\n");
+
+    
+    
+    console.log("Context for LLM:", context);
+
 
     const answer = await callLLMWithContext(context, query, userHistory);
 

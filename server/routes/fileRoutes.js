@@ -266,15 +266,17 @@ async function findRelevantChunks(userId, queryEmbedding) {
 
 
 async function callLLMWithContext(contextChunks, query, userHistory) {
-  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} and 
-                        also the previous queries and their answers are:\n\n${userHistory} \n and 
-                        you do not stray from these not even a single word other than the given file excerpts and user history. 
+  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} \n and 
+                        you do not stray from these not even a single word other than the given file excerpts and user history${userHistory.query} \n\n
+                        User: ${query} \n\n
                         `;
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: query }
-  ];
 
+  console.log("System Prompt:", systemPrompt);
+  const messages = [
+    { role: "user", content: query },
+    { role: "system", content: systemPrompt }
+  ];
+  console.log(messages)
   // Send this to your Hugging Face hosted LLM or any local model
   return callLLM(messages); // use your existing function
 }
@@ -430,16 +432,30 @@ router.post("/query", protectRoute, async (req, res) => {
     
 
 
-    const context = chunks.map(
-      (c) => `File ID: ${c.file_id}\nFilename: ${c.filename}`
-    ).join("\n\n");
+    //const context = chunks.map(
+    //  (c) => `File ID: ${c.file_id}\nFilename: ${c.filename}`
+    //).join("\n\n");
 
+    const file_id = chunks[0]?.file_id;
+    const filename = chunks[0]?.filename;
     
+    // Build single context entry
+    const context = `File ID: ${file_id}\nFilename: ${filename}`;
     
-    console.log("Context for LLM:", context);
+    console.log("File ID:", file_id);
+    console.log("Context for LLM:\n", context);
+    
 
+    const filePath = await fileOp.downloadAndMergeChunks2(file_id, userId);
+    
+    if (!filePath) {
+      console.log("No File path:", filePath);
+    }
+    console.log("File path:", filePath);
 
-    const answer = await callLLMWithContext(context, query, userHistory);
+    const fileContent = await extractTextFromFile(filePath, filename);
+
+    const answer = await callLLMWithContext(fileContent, query, userHistory);
 
     userHistory.push({ query, answer }); // add latest
 

@@ -2,48 +2,36 @@ const axios = require("axios");
 
 
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+// Initialize with your Gemini API key
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function callLLM(messages) {
-  const prompt = messages
-    .map((m) =>
-      `${m.role === "user" ? "User" : m.role === "assistant" ? "Assistant" : "System"}: ${m.content}`
-    )
-    .join("\n") + "\nAssistant:";
-
   try {
-    const response = await axios.post(
-      "https://api.together.xyz/v1/completions",
-      {
-        model: "mistralai/Mistral-7B-Instruct-v0.1", // ✅ Use valid Together model
-        prompt: prompt, // ✅ Required
-        max_tokens: 200,
-        temperature: 0.7,
-        top_p: 0.9,
-        stop: ["User:", "Assistant:"], // ✅ Optional, but helpful
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`, // ✅ Make sure this exists!
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // Get the Gemini Pro chat model
+    const model = genAI.getGenerativeModel({ model: "gemma-3-12b-it" });
 
-    const output = response.data?.choices?.[0]?.text;
-    if (!output) {
-      console.error("Unexpected LLM output structure:", response.data);
-      return "⚠️ No output from LLM.";
-    }
+    // Start the chat session
+    const chat = model.startChat({
+      history: messages.slice(0, -1).map((msg) => ({
+        role: msg.role,
+        parts: [{ text: msg.content }],
+      })),
+    });
 
-    return output.trim();
+    // Send the latest message in the conversation
+    const result = await chat.sendMessage(messages[messages.length - 1].content);
+
+    const response = await result.response;
+    const text = response.text();
+
+    return text.trim();
   } catch (error) {
-    if (error.response) {
-      console.error("LLM API response error:", error.response.data);
-    } else {
-      console.error("LLM call failed:", error.message);
-    }
-    return "⚠️ LLM request failed. Please try again.";
+    console.error("Gemini LLM error:", error.message);
+    return "⚠️ Gemini request failed.";
   }
 }
 
 module.exports = { callLLM };
+

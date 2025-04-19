@@ -11,8 +11,19 @@ const fs = require("fs");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth"); // For .docx files
 const { callLLM } = require("../utils/llm");
+const axios = require("axios");
+const { QdrantClient } = require("@qdrant/js-client-rest");
+const { v4: uuidv4 } = require("uuid");
+const HF_API_TOKEN = process.env.HF_API_TOKEN;
+const QDRANT_URL = process.env.QDRANT_URL;
+const conversationHistories = new Map();
+const MAX_HISTORY = 5;
+const COLLECTION_NAME = "documents";
 
-
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
 
 async function extractTextFromFile(filePath, originalName) {
   const ext = path.extname(originalName).toLowerCase();
@@ -39,44 +50,52 @@ async function extractTextFromFile(filePath, originalName) {
 }
 
 // Upload route
-router.post("/upload", protectRoute, upload.single("file"), async (req, res) => { 
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded "});
+router.post(
+  "/upload",
+  protectRoute,
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded " });
+    }
+
+    try {
+      const userId = req.user.id; // Extract the user_id from the request
+      const fileContent = await extractTextFromFile(
+        req.file.path,
+        req.file.originalname
+      );
+      const filename = req.file.originalname;
+
+      // Correct call to upFile()
+      const fileId = await fileOp.upFile(
+        req.file.path,
+        req.file.originalname,
+        req.file.size,
+        userId,
+        fileContent
+      );
+
+      if (!fileContent) {
+        return res
+          .status(400)
+          .json({ error: "No content extracted from the file" });
+      }
+
+      const file_id = fileId.fileId;
+
+      console.log("File ID:", file_id);
+
+      await indexFileChunks({ userId, filename, fileContent, file_id });
+
+      res.json({ success: true, fileId });
+    } catch (error) {
+      console.error("Upload Route Error:", error.message);
+      console.log(req.file.path);
+      res.status(500).json({ error: "Upload failed" });
+    }
   }
-  
-  try {
-    const userId = req.user.id; // Extract the user_id from the request
-    const fileContent = await extractTextFromFile(req.file.path, req.file.originalname);;
-    const filename = req.file.originalname;
-    
-
-    
-    // Correct call to upFile()
-    const fileId = await fileOp.upFile(
-      req.file.path,
-      req.file.originalname,
-      req.file.size,
-      userId,
-      fileContent,
-    );
-
-    if(!fileContent){
-      return res.status(400).json({ error: "No content extracted from the file" });
-    };
-
-    const file_id = fileId.fileId;
-
-    console.log("File ID:", file_id);
-
-    await indexFileChunks({ userId, filename, fileContent, file_id });
-
-    res.json({ success: true, fileId });
-  } catch (error) {
-    console.error("Upload Route Error:", error.message);
-    console.log(req.file.path);
-    res.status(500).json({ error: "Upload failed" });
-  }
-});
+);
 
 // GET API to fetch all files for a specific user
 router.get("/files", protectRoute, async (req, res) => {
@@ -196,18 +215,6 @@ router.get("/space", protectRoute, async (req, res) => {
   }
 });
 
-const { Pool } = require("pg");
-const axios = require("axios");
-
-const { QdrantClient } = require("@qdrant/js-client-rest");
-
-const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL,
-  apiKey: process.env.QDRANT_API_KEY,
-});
-
-const COLLECTION_NAME = "documents";
-
 async function getQueryEmbedding(query) {
   const res = await axios.post(
     "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
@@ -222,7 +229,11 @@ async function getQueryEmbedding(query) {
 
 async function findRelevantChunks(userId, queryEmbedding) {
   try {
-    if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length !== 384) {
+    if (
+      !queryEmbedding ||
+      !Array.isArray(queryEmbedding) ||
+      queryEmbedding.length !== 384
+    ) {
       throw new Error("Invalid or missing embedding vector.");
     }
 
@@ -246,10 +257,9 @@ async function findRelevantChunks(userId, queryEmbedding) {
 
     console.log("Qdrant Search Payload:", searchPayload);
 
-
-    // ✅ Fix: Pass collection_name as separate string argument
+    // Fix: Pass collection_name as separate string argument
     const result = await qdrant.search(COLLECTION_NAME, searchPayload);
-    // ✅ FIX: Pass second argument as empty object
+    // FIX: Pass second argument as empty object
     //const result = await qdrant.search(searchPayload, {});
 
     if (!result || !Array.isArray(result)) {
@@ -263,8 +273,6 @@ async function findRelevantChunks(userId, queryEmbedding) {
   }
 }
 
-
-
 async function callLLMWithContext(contextChunks, query, userHistory) {
   const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} \n and 
                         you do not stray from these not even a single word other than the given file excerpts and user history${userHistory.query} \n\n
@@ -274,15 +282,12 @@ async function callLLMWithContext(contextChunks, query, userHistory) {
   console.log("System Prompt:", systemPrompt);
   const messages = [
     { role: "user", content: query },
-    { role: "system", content: systemPrompt }
+    { role: "system", content: systemPrompt },
   ];
-  console.log(messages)
+  console.log(messages);
   // Send this to your Hugging Face hosted LLM or any local model
   return callLLM(messages); // use your existing function
 }
-
-
-const HF_API_TOKEN = process.env.HF_API_TOKEN;
 
 async function embedText(text) {
   try {
@@ -306,9 +311,8 @@ async function embedText(text) {
       console.log("Vector Length", vector.length);
     }
 
-      
-      console.log("Raw response data:", response.data);
-      console.log("Vector Length", vector.length);
+    console.log("Raw response data:", response.data);
+    console.log("Vector Length", vector.length);
 
     if (!Array.isArray(vector) || vector.length !== 384) {
       console.error("Invalid embedding shape:", vector);
@@ -323,12 +327,10 @@ async function embedText(text) {
   }
 }
 
-
-
 async function createCollectionIfNotExists() {
-  const exists = await qdrant.getCollections().then(res =>
-    res.collections.some(col => col.name === COLLECTION_NAME)
-  );
+  const exists = await qdrant
+    .getCollections()
+    .then((res) => res.collections.some((col) => col.name === COLLECTION_NAME));
 
   if (!exists) {
     await qdrant.createCollection(COLLECTION_NAME, {
@@ -338,19 +340,15 @@ async function createCollectionIfNotExists() {
       },
     });
 
-    console.log(`✅ Created Qdrant collection "${COLLECTION_NAME}"`);
+    console.log(`Created Qdrant collection "${COLLECTION_NAME}"`);
   }
 }
-
-const { v4: uuidv4 } = require("uuid");
-
 
 async function indexFileChunks({ userId, filename, fileContent, file_id }) {
   if (!fileContent) {
     console.error("No content to index.");
     return;
   }
-
 
   createCollectionIfNotExists();
   // Split the file content into chunks of 1000 characters or less
@@ -384,7 +382,7 @@ async function indexFileChunks({ userId, filename, fileContent, file_id }) {
   if (points.length > 0) {
     try {
       const response = await axios.put(
-        `https://a18370a2-ed73-4166-8204-cf4de1886e37.us-east4-0.gcp.cloud.qdrant.io:6333/collections/${COLLECTION_NAME}/points`,
+        `${QDRANT_URL}/collections/${COLLECTION_NAME}/points`,
         { points }, // Qdrant expects { points: [...] }
         {
           headers: {
@@ -393,15 +391,12 @@ async function indexFileChunks({ userId, filename, fileContent, file_id }) {
           },
         }
       );
-      console.log(`✅ Indexed ${points.length} chunks`);
+      console.log(`Indexed ${points.length} chunks`);
     } catch (err) {
-      console.error("❌ Qdrant upsert error:", err.response?.data || err.message);
+      console.error("Qdrant upsert error:", err.response?.data || err.message);
     }
   }
 }
-
-const conversationHistories = new Map();
-const MAX_HISTORY = 5;
 
 // Route to handle LLM queries
 // This route is for querying the LLM with a specific question and context
@@ -416,7 +411,6 @@ router.post("/query", protectRoute, async (req, res) => {
     console.log("Query embedding:", queryEmbedding);
     const chunks = await findRelevantChunks(userId, queryEmbedding);
 
-
     // Get user-specific conversation history
     if (!conversationHistories.has(userId)) {
       conversationHistories.set(userId, []);
@@ -429,8 +423,6 @@ router.post("/query", protectRoute, async (req, res) => {
     if (userHistory.length >= MAX_HISTORY) {
       userHistory.shift(); // remove oldest
     }
-    
-
 
     //const context = chunks.map(
     //  (c) => `File ID: ${c.file_id}\nFilename: ${c.filename}`
@@ -438,16 +430,15 @@ router.post("/query", protectRoute, async (req, res) => {
 
     const file_id = chunks[0]?.file_id;
     const filename = chunks[0]?.filename;
-    
+
     // Build single context entry
     const context = `File ID: ${file_id}\nFilename: ${filename}`;
-    
+
     console.log("File ID:", file_id);
     console.log("Context for LLM:\n", context);
-    
 
     const filePath = await fileOp.downloadAndMergeChunks2(file_id, userId);
-    
+
     if (!filePath) {
       console.log("No File path:", filePath);
     }
@@ -459,12 +450,11 @@ router.post("/query", protectRoute, async (req, res) => {
 
     userHistory.push({ query, answer }); // add latest
 
-    res.json({ result: `*LLM Answer:*\n${answer}` });
+    res.json({ result: `\n${answer}` });
   } catch (err) {
     console.error("Query error:", err);
     res.status(500).json({ error: "LLM query failed" });
   }
 });
-
 
 module.exports = router;

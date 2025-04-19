@@ -259,6 +259,132 @@ class FileOp {
     }
   }
 
+
+  async downloadAndMergeChunks2(fileId,userId) {
+    const client = await pool.connect(); // Get a client from the pool
+
+    try {
+      // Fetch file metadata (name and extension) from the file_info table
+      const fileQuery = `
+        SELECT title, fileExtension 
+        FROM file_info 
+        WHERE id = $1;`;
+      const fileRes = await client.query(fileQuery, [fileId]); // Query the database
+
+      if (!fileRes.rows.length) {
+        throw new Error("File metadata not found in the database.");
+      }
+
+      const { title, fileExtension } = fileRes.rows[0]; // Get the file metadata
+      const fileName = `${title}.${fileExtension}`; // Original file name with extension
+
+      // Fetch chunk IDs and their storage types from the database
+      const chunkQuery = `
+        SELECT chunk_id, type 
+        FROM chunk_id 
+        WHERE file_id = $1 
+        ORDER BY id;`; // Ensure chunks are ordered correctly
+      const chunkRes = await client.query(chunkQuery, [fileId]); // Query the database
+
+      if (!chunkRes.rows.length) {
+        throw new Error("No chunks found for the given file ID.");
+      }
+
+      const chunks = chunkRes.rows;
+      const tempDir = path.join(__dirname, "temp"); // Temporary directory for chunks
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir); // Create the temporary directory if it doesn't exist
+      }
+
+      // Download each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        const { chunk_id, type } = chunks[i]; // Get the chunk ID and storage type
+        const chunkPath = path.join(tempDir, `chunk_${i}`); // Temporary chunk file
+
+        // Download the chunk from the cloud storage
+        try {
+          if (type === "google") {
+            try {
+              await this.googleBucket.downloadFile(chunk_id, chunkPath, userId); // Download from Google Drive
+            } catch (error) {
+              if (error.message === "FILE_NOT_FOUND_IN_GOOGLE_DRIVE") {
+                console.warn(
+                  `⚠️ Chunk ${chunk_id} not found in Google Drive. Checking Dropbox...`
+                );
+                await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // If not found in the Google drive then try Dropbox
+              } else {
+                throw error; // Re-throw other errors
+              }
+            }
+          } else if (type === "dropbox") {
+            await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // Download from Dropbox
+          } else {
+            throw new Error(`Unsupported storage type: ${type}`);
+          }
+        } catch (error) {
+          console.error(`Error downloading chunk ${chunk_id}:`, error.message);
+          throw error;
+        }
+      }
+
+      // Merge chunks into a single file
+      const mergedFilePath = path.join(tempDir, fileName); // Use the original file name
+      const writeStream = fs.createWriteStream(mergedFilePath); // Write stream for the merged file
+
+      // Read each chunk and write it to the merged file
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkPath = path.join(tempDir, `chunk_${i}`);
+        const readStream = fs.createReadStream(chunkPath);
+        await new Promise((resolve, reject) => {
+          readStream.pipe(writeStream, { end: false }); // Pipe the read stream to the write stream
+          readStream.on("end", resolve); // Resolve the promise when reading is done
+          readStream.on("error", reject); // Reject the promise if there's an error
+        });
+        fs.unlinkSync(chunkPath); // Delete the temporary chunk file
+      }
+
+      writeStream.end(); // End the write stream
+
+      const file_Name = fileName.replace(/\.undefined$/, "");
+      // ✅ Wait for file save + return the path
+const finalPath = await new Promise((resolve, reject) => {
+  writeStream.on("finish", () => {
+    const os = require("os");
+    let downloadsPath = path.join(os.homedir(), "Downloads", fileName);
+
+    // Remove trailing `.undefined` if any
+    if (downloadsPath.endsWith(".undefined")) {
+      downloadsPath = downloadsPath.replace(".undefined", "");
+    }
+
+    try {
+      fs.renameSync(mergedFilePath, downloadsPath);
+      console.log(`✅ File saved to: ${downloadsPath}`);
+      resolve(downloadsPath); // ✅ return path here
+    } catch (err) {
+      console.error("❌ Error moving file to Downloads:", err);
+      reject(err);
+    }
+  });
+
+  writeStream.on("error", (err) => {
+    reject(err);
+  });
+  });
+
+  return finalPath; //
+
+       
+      
+
+    } catch (error) {
+      console.error("Download and merge error:", error.message);
+      return "nopath";
+    } finally {
+      client.release();
+    }
+  }
+
   // Method to delete chunks and metadata from the database and cloud storage
   async deleteChunks(fileId, userId) {
     const client = await pool.connect(); // Get a client from the pool

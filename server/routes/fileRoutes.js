@@ -10,17 +10,9 @@ const path = require("path");
 const fs = require("fs");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth"); // For .docx files
-const { callLLM } = require("../utils/llm.js");
-const { v4: uuidv4 } = require("uuid");
-const axios = require("axios");
-const { QdrantClient } = require("@qdrant/js-client-rest");
-const HF_API_TOKEN = process.env.HF_API_TOKEN;
-const COLLECTION_NAME = "documents";
+const { callLLM } = require("../utils/llm");
 
-const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL,
-  apiKey: process.env.QDRANT_API_KEY,
-});
+
 
 async function extractTextFromFile(filePath, originalName) {
   const ext = path.extname(originalName).toLowerCase();
@@ -46,15 +38,6 @@ async function extractTextFromFile(filePath, originalName) {
   }
 }
 
-function chunkText(text, maxTokens = 512) {
-  const words = text.split(/\s+/);
-  const chunks = [];
-  for (let i = 0; i < words.length; i += maxTokens) {
-    chunks.push(words.slice(i, i + maxTokens).join(" "));
-  }
-  return chunks;
-}
-
 // Upload route
 router.post("/upload", protectRoute, upload.single("file"), async (req, res) => { 
   if (!req.file) {
@@ -65,6 +48,8 @@ router.post("/upload", protectRoute, upload.single("file"), async (req, res) => 
     const userId = req.user.id; // Extract the user_id from the request
     const fileContent = await extractTextFromFile(req.file.path, req.file.originalname);;
     const filename = req.file.originalname;
+    
+
     
     // Correct call to upFile()
     const fileId = await fileOp.upFile(
@@ -79,7 +64,11 @@ router.post("/upload", protectRoute, upload.single("file"), async (req, res) => 
       return res.status(400).json({ error: "No content extracted from the file" });
     };
 
-    await indexFileChunks({ userId, filename, fileContent });
+    const file_id = fileId.fileId;
+
+    console.log("File ID:", file_id);
+
+    await indexFileChunks({ userId, filename, fileContent, file_id });
 
     res.json({ success: true, fileId });
   } catch (error) {
@@ -207,6 +196,18 @@ router.get("/space", protectRoute, async (req, res) => {
   }
 });
 
+const { Pool } = require("pg");
+const axios = require("axios");
+
+const { QdrantClient } = require("@qdrant/js-client-rest");
+
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
+
+const COLLECTION_NAME = "documents";
+
 async function getQueryEmbedding(query) {
   const res = await axios.post(
     "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
@@ -246,9 +247,9 @@ async function findRelevantChunks(userId, queryEmbedding) {
     console.log("Qdrant Search Payload:", searchPayload);
 
 
-    // Fix: Pass collection_name as separate string argument
+    // ✅ Fix: Pass collection_name as separate string argument
     const result = await qdrant.search(COLLECTION_NAME, searchPayload);
-    // FIX: Pass second argument as empty object
+    // ✅ FIX: Pass second argument as empty object
     //const result = await qdrant.search(searchPayload, {});
 
     if (!result || !Array.isArray(result)) {
@@ -262,16 +263,26 @@ async function findRelevantChunks(userId, queryEmbedding) {
   }
 }
 
-async function callLLMWithContext(contextChunks, query) {
-  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} and you do not stray from it`;
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: query }
-  ];
 
+
+async function callLLMWithContext(contextChunks, query, userHistory) {
+  const systemPrompt = `You are an assistant that answers based on these file excerpts:\n\n${contextChunks} \n and 
+                        you do not stray from these not even a single word other than the given file excerpts and user history${userHistory.query} \n\n
+                        User: ${query} \n\n
+                        `;
+
+  console.log("System Prompt:", systemPrompt);
+  const messages = [
+    { role: "user", content: query },
+    { role: "system", content: systemPrompt }
+  ];
+  console.log(messages)
   // Send this to your Hugging Face hosted LLM or any local model
   return callLLM(messages); // use your existing function
 }
+
+
+const HF_API_TOKEN = process.env.HF_API_TOKEN;
 
 async function embedText(text) {
   try {
@@ -312,6 +323,8 @@ async function embedText(text) {
   }
 }
 
+
+
 async function createCollectionIfNotExists() {
   const exists = await qdrant.getCollections().then(res =>
     res.collections.some(col => col.name === COLLECTION_NAME)
@@ -325,15 +338,19 @@ async function createCollectionIfNotExists() {
       },
     });
 
-    console.log(`Created Qdrant collection "${COLLECTION_NAME}"`);
+    console.log(`✅ Created Qdrant collection "${COLLECTION_NAME}"`);
   }
 }
 
-async function indexFileChunks({ userId, filename, fileContent }) {
+const { v4: uuidv4 } = require("uuid");
+
+
+async function indexFileChunks({ userId, filename, fileContent, file_id }) {
   if (!fileContent) {
     console.error("No content to index.");
     return;
   }
+
 
   createCollectionIfNotExists();
   // Split the file content into chunks of 1000 characters or less
@@ -341,6 +358,8 @@ async function indexFileChunks({ userId, filename, fileContent }) {
   const chunks = fileContent.match(/(.|[\r\n]){1,1000}/g) || [];
 
   const points = [];
+
+  console.log("FIle ID:", file_id);
 
   for (const chunk of chunks) {
     const embedding = await embedText(chunk);
@@ -357,7 +376,7 @@ async function indexFileChunks({ userId, filename, fileContent }) {
       payload: {
         userId: String(userId), // must be string if Qdrant expects that
         filename,
-        content: chunk,
+        file_id,
       },
     });
   }
@@ -365,7 +384,7 @@ async function indexFileChunks({ userId, filename, fileContent }) {
   if (points.length > 0) {
     try {
       const response = await axios.put(
-        `https://a0a6bd9d-7ce7-4dc7-b419-50fa3b219edf.us-east4-0.gcp.cloud.qdrant.io:6333/collections/${COLLECTION_NAME}/points`,
+        `https://a18370a2-ed73-4166-8204-cf4de1886e37.us-east4-0.gcp.cloud.qdrant.io:6333/collections/${COLLECTION_NAME}/points`,
         { points }, // Qdrant expects { points: [...] }
         {
           headers: {
@@ -374,12 +393,15 @@ async function indexFileChunks({ userId, filename, fileContent }) {
           },
         }
       );
-      console.log(`Indexed ${points.length} chunks`);
+      console.log(`✅ Indexed ${points.length} chunks`);
     } catch (err) {
-      console.error("Qdrant upsert error:", err.response?.data || err.message);
+      console.error("❌ Qdrant upsert error:", err.response?.data || err.message);
     }
   }
 }
+
+const conversationHistories = new Map();
+const MAX_HISTORY = 5;
 
 // Route to handle LLM queries
 // This route is for querying the LLM with a specific question and context
@@ -394,17 +416,55 @@ router.post("/query", protectRoute, async (req, res) => {
     console.log("Query embedding:", queryEmbedding);
     const chunks = await findRelevantChunks(userId, queryEmbedding);
 
-    const context = chunks.map(
-      (c) => `File: ${c.filename}\nContent: "${c.content}"`
-    ).join("\n\n");
 
-    const answer = await callLLMWithContext(context, query);
+    // Get user-specific conversation history
+    if (!conversationHistories.has(userId)) {
+      conversationHistories.set(userId, []);
+      console.log("New conversation history created for user:", userId);
+    }
+    const userHistory = conversationHistories.get(userId);
+    console.log("User history:", userHistory);
 
-    res.json({ result: answer });
+    // Update conversation history queue
+    if (userHistory.length >= MAX_HISTORY) {
+      userHistory.shift(); // remove oldest
+    }
+    
+
+
+    //const context = chunks.map(
+    //  (c) => `File ID: ${c.file_id}\nFilename: ${c.filename}`
+    //).join("\n\n");
+
+    const file_id = chunks[0]?.file_id;
+    const filename = chunks[0]?.filename;
+    
+    // Build single context entry
+    const context = `File ID: ${file_id}\nFilename: ${filename}`;
+    
+    console.log("File ID:", file_id);
+    console.log("Context for LLM:\n", context);
+    
+
+    const filePath = await fileOp.downloadAndMergeChunks2(file_id, userId);
+    
+    if (!filePath) {
+      console.log("No File path:", filePath);
+    }
+    console.log("File path:", filePath);
+
+    const fileContent = await extractTextFromFile(filePath, filename);
+
+    const answer = await callLLMWithContext(fileContent, query, userHistory);
+
+    userHistory.push({ query, answer }); // add latest
+
+    res.json({ result: `*LLM Answer:*\n${answer}` });
   } catch (err) {
     console.error("Query error:", err);
     res.status(500).json({ error: "LLM query failed" });
   }
 });
+
 
 module.exports = router;

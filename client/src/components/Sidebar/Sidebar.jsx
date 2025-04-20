@@ -14,7 +14,7 @@ export const Sidebar = () => {
         b.title === "All" ||
         b.title === "Files" ||
         b.title === "Images & Videos" ||
-        b.title === "Chatbot"
+        b.title === "Infy"
       );
     } else {
       return (
@@ -22,7 +22,7 @@ export const Sidebar = () => {
         b.title === "All" ||
         b.title === "Files" ||
         b.title === "Images & Videos" ||
-        b.title === "Chatbot"
+        b.title === "Infy"
       );
     }
   });

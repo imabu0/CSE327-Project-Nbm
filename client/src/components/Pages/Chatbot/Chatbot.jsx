@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Input, Button, message, Typography, Spin, Avatar, Alert } from "antd";
 import {
-  Input,
-  Button,
-  message,
-  Typography,
-  Spin,
-  Divider,
-  Avatar,
-  Alert,
-} from "antd";
-import {
-  LinkOutlined,
   RobotOutlined,
   UserOutlined,
   ArrowUpOutlined,
@@ -20,7 +10,7 @@ import { Sidebar } from "../../Sidebar/Sidebar";
 import { Avatar as User } from "../../Profile/Avatar";
 
 const { TextArea } = Input;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export const Chatbot = () => {
   // Removed fileId prop since we don't need it
@@ -121,7 +111,7 @@ export const Chatbot = () => {
 
       <div className="w-full p-3 flex flex-col" style={{ height: "100vh" }}>
         <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Chatbot</h1>
+          <h1 className="text-2xl font-semibold">Infy</h1>
           <User />
         </div>
 
@@ -143,9 +133,9 @@ export const Chatbot = () => {
               }}
             >
               {messages.length === 0 && (
-                <div className="text-center text-gray-500">
-                  <RobotOutlined className="mx-auto text-4xl" />
-                  <Text type="secondary">
+                <div className="text-center text-gray-500 flex items-center justify-center gap-1">
+                  <RobotOutlined className="text-4xl" />
+                  <Text type="secondary" className="text-[18px]">
                     Hi, I'm Infy. How can I assist you today?
                   </Text>
                 </div>
@@ -230,20 +220,12 @@ export const Chatbot = () => {
               style={{ border: "none" }}
               className="[&:focus]:shadow-none"
             />
-            <div className="flex items-center gap-1">
-              <Button
-                icon={<LinkOutlined />}
-                onClick={handleSubmit}
-                loading={loading}
-                style={{ width: 42, height: 42, borderRadius: "50%" }}
-              ></Button>
-              <Button
-                icon={<ArrowUpOutlined />}
-                onClick={handleSubmit}
-                loading={loading}
-                style={{ width: 42, height: 42, borderRadius: "50%" }}
-              ></Button>
-            </div>
+            <Button
+              icon={<ArrowUpOutlined />}
+              onClick={handleSubmit}
+              loading={loading}
+              style={{ width: 42, height: 42, borderRadius: "50%" }}
+            ></Button>
           </div>
         </div>
       </div>

@@ -19,7 +19,7 @@ class FileOp {
       dropbox: Array.isArray(dropboxStorage) ? dropboxStorage : [], // Ensure it's an array
     };
   }
-  
+
   async upFile(filePath, fileName, fileSize, userId, fileContent) {
     const client = await pool.connect(); // Get a client from the pool
 
@@ -210,7 +210,11 @@ class FileOp {
                 console.warn(
                   `⚠️ Chunk ${chunk_id} not found in Google Drive. Checking Dropbox...`
                 );
-                await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // If not found in the Google drive then try Dropbox
+                await this.dropboxBucket.downloadFile(
+                  chunk_id,
+                  chunkPath,
+                  userId
+                ); // If not found in the Google drive then try Dropbox
               } else {
                 throw error; // Re-throw other errors
               }
@@ -259,8 +263,7 @@ class FileOp {
     }
   }
 
-
-  async downloadAndMergeChunks2(fileId,userId) {
+  async downloadAndMergeChunks2(fileId, userId) {
     const client = await pool.connect(); // Get a client from the pool
 
     try {
@@ -311,7 +314,11 @@ class FileOp {
                 console.warn(
                   `⚠️ Chunk ${chunk_id} not found in Google Drive. Checking Dropbox...`
                 );
-                await this.dropboxBucket.downloadFile(chunk_id, chunkPath, userId); // If not found in the Google drive then try Dropbox
+                await this.dropboxBucket.downloadFile(
+                  chunk_id,
+                  chunkPath,
+                  userId
+                ); // If not found in the Google drive then try Dropbox
               } else {
                 throw error; // Re-throw other errors
               }
@@ -346,37 +353,33 @@ class FileOp {
       writeStream.end(); // End the write stream
 
       const file_Name = fileName.replace(/\.undefined$/, "");
-      // ✅ Wait for file save + return the path
-const finalPath = await new Promise((resolve, reject) => {
-  writeStream.on("finish", () => {
-    const os = require("os");
-    let downloadsPath = path.join(os.homedir(), "Downloads", fileName);
+      // Wait for file save + return the path
+      const finalPath = await new Promise((resolve, reject) => {
+        writeStream.on("finish", () => {
+          const os = require("os");
+          let downloadsPath = path.join(os.homedir(), "Downloads", fileName);
 
-    // Remove trailing `.undefined` if any
-    if (downloadsPath.endsWith(".undefined")) {
-      downloadsPath = downloadsPath.replace(".undefined", "");
-    }
+          // Remove trailing `.undefined` if any
+          if (downloadsPath.endsWith(".undefined")) {
+            downloadsPath = downloadsPath.replace(".undefined", "");
+          }
 
-    try {
-      fs.renameSync(mergedFilePath, downloadsPath);
-      console.log(`✅ File saved to: ${downloadsPath}`);
-      resolve(downloadsPath); // ✅ return path here
-    } catch (err) {
-      console.error("❌ Error moving file to Downloads:", err);
-      reject(err);
-    }
-  });
+          try {
+            fs.renameSync(mergedFilePath, downloadsPath);
+            console.log(`File saved to: ${downloadsPath}`);
+            resolve(downloadsPath); // return path here
+          } catch (err) {
+            console.error("Error moving file to Downloads:", err);
+            reject(err);
+          }
+        });
 
-  writeStream.on("error", (err) => {
-    reject(err);
-  });
-  });
+        writeStream.on("error", (err) => {
+          reject(err);
+        });
+      });
 
-  return finalPath; //
-
-       
-      
-
+      return finalPath;
     } catch (error) {
       console.error("Download and merge error:", error.message);
       return "nopath";
@@ -425,7 +428,10 @@ const finalPath = await new Promise((resolve, reject) => {
             throw new Error(`Unsupported storage type: ${type}`);
           }
         } catch (error) {
-          console.error(`Error deleting chunk ${chunk_id, userId}:`, error.message);
+          console.error(
+            `Error deleting chunk ${(chunk_id, userId)}:`,
+            error.message
+          );
           throw error;
         }
       }

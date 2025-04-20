@@ -15,7 +15,7 @@ function App() {
         <Route exact path="/all" element={<All />} />
         <Route exact path="/files" element={<Files />} />
         <Route exact path="/images" element={<Images />} />
-        <Route exact path="/chatbot" element={<Chatbot />} />
+        <Route exact path="/infy" element={<Chatbot />} />
       </Routes>
     </Main>
   );

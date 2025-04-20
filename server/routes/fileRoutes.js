@@ -458,6 +458,7 @@ router.post("/query", protectRoute, async (req, res) => {
     const answer = await callLLMWithContext(fileContent, query, userHistory);
 
     userHistory.push({ query, answer }); // add latest
+    fs.unlinkSync(filePath);
 
     res.json({ result: `*LLM Answer:*\n${answer}` });
   } catch (err) {
